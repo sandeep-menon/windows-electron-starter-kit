@@ -41,7 +41,7 @@ electron-starter-kit/
 ├── electron.vite.config.ts
 ├── package.json
 ├── tsconfig.json
-├── package.node.json
+├── tsconfig.node.json
 └── tsconfig.web.json
 ```
 

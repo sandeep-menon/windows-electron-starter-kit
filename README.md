@@ -1,6 +1,6 @@
 # windows-electron-starter-kit
 
-A production-ready Electron starter with React, TypeScript, Tailwind CSS v4, shadcn/ui, electron-store, and electron-log - batteries included.
+A production-ready Electron starter template with React, TypeScript, Tailwind CSS v4, shadcn/ui, electron-store, and electron-log.
 
 ## Stack
 
@@ -17,7 +17,7 @@ A production-ready Electron starter with React, TypeScript, Tailwind CSS v4, sha
 ```bash
 # Clone
 git clone https://github.com/sandeep-menon/windows-electron-starter-kit.git
-cd electron-starter-kit
+cd windows-electron-starter-kit
 
 # Install
 npm install
@@ -28,6 +28,11 @@ npm run dev
 # Build
 npm run build
 ```
+
+## Available Scripts
+
+- `npm run dev`: Start the app in development mode with hot reload.
+- `npm run build`: Build and package the app for distribution.
 
 ## Project Structure
 
@@ -53,13 +58,44 @@ electron-starter-kit/
 - 📋 Structured logging via electron-log with IPC bridge
 - 🔒 Secure IPC with typed contextBridge
 
+## Troubleshooting
+
+### 1) Electron binary download fails
+
+If the Electron distributable does not download during installation, run:
+
+```bash
+node .\\node_modules\\electron\\install.js
+```
+
+Then retry:
+
+```bash
+npm install
+```
+
+### 2) App icon is not updated in build output
+
+To apply a custom icon consistently, update all of the following files:
+
+- `resources/icon.png`
+- `build/icon.png`
+- `build/icon.ico`
+
+Icon requirements:
+
+- `icon.ico` should be at least 256x256.
+- Use square source assets to avoid scaling artifacts.
+- Re-run `npm run build` after replacing icon files.
+
+### 3) Build succeeds but packaged app looks stale
+
+If assets appear outdated:
+
+- Remove previous output directories (for example `dist/`, if present).
+- Re-run `npm run build`.
+- Confirm you are launching the newly generated package.
+
 ## License
 
 MIT
-
-## Trouble Shooting
-
-1. If electron distributable is not downloading, run:
-```bash
-node .\node_modules\electron\install.js
-```

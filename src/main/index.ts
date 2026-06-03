@@ -2,8 +2,8 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { initializeLogging, isLoggingEnabled } from './utils/application'
-import log from 'electron-log'
+import { initializeLogging } from './utils/application'
+import log from 'electron-log/main'
 import { registerHandlers } from './handler'
 
 function createWindow(): void {
@@ -47,11 +47,7 @@ app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.smenon.windowselectronstarterkit')
 
-  if (isLoggingEnabled()) {
-    initializeLogging();
-  } else {
-    log.transports.file.level = false
-  }
+  initializeLogging();
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

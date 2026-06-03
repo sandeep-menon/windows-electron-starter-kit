@@ -1,12 +1,14 @@
 import { app } from "electron";
 import path from "path";
 import fs from "fs";
-import log from "electron-log";
+import log from "electron-log/main";
 import os from "os";
+import { is } from "@electron-toolkit/utils";
 
-export function isLoggingEnabled() {
-    // return true;
-    return (process.argv.includes("--enable-logging"));
+const MAX_LOG_FILES = 5;
+
+function isVerboseLogging() {
+    return is.dev || process.argv.includes("--enable-logging");
 }
 
 export function generateTimestamp() {
@@ -69,13 +71,32 @@ function getEnvironmentInfo() {
     return info;
 }
 
+function cleanupOldLogs(logDir: string) {
+    const files = fs.readdirSync(logDir)
+                    .filter((file) => file.startsWith("app_") && file.endsWith(".log"))
+                    .map((file) => ({
+                        name: file,
+                        time: fs.statSync(path.join(logDir, file)).mtimeMs
+                    }))
+                    .sort((a, b) => b.time - a.time);
+    for (const file of files.slice(MAX_LOG_FILES)) {
+        fs.rmSync(path.join(logDir, file.name), { force: true });
+    }
+}
+
 export function initializeLogging() {
     const logFileName = generateLogFileName();
     const logDir = path.join(app.getPath("userData"), "logs");
     const logFilePath = path.join(logDir, logFileName);
     fs.mkdirSync(logDir, { recursive: true });
     fs.writeFileSync(logFilePath, "");
+    cleanupOldLogs(logDir);
     log.transports.file.resolvePathFn = () => logFilePath;
+    const level = isVerboseLogging() ? "silly" : "info";
+    log.transports.file.level = level;
+    log.transports.console.level = level;
+    log.initialize();
+    log.errorHandler.startCatching();
     log.info("Application launched with logging...");
     const envInfo = getEnvironmentInfo();
     log.info("Environment:");

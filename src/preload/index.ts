@@ -1,13 +1,29 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import log from 'electron-log'
+import log from 'electron-log/renderer'
+
+const SENSITIVE_KEYS = ['password', 'token', 'secret', 'authorization', 'apikey', 'accesstoken', 'personalaccesstoken', 'pat', 'refreshtoken', 'cookie'];
+
+const redact = (value: any): any => {
+  if (Array.isArray(value)) {
+    return value.map(redact);
+  }
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, val]) => 
+        SENSITIVE_KEYS.includes(key.toLowerCase()) ? [key, '[REDACTED]'] : [key, redact(val)]
+      )
+    )
+  }
+  return value;
+}
 
 const LoggingIPCWrapper = () => {
   const invokeWithLogging = async (channel, ...args) => {
-    log.info(`[renderer → main] (request): '${channel}' → `, ...args);
+    log.info(`[renderer → main] (request): '${channel}' → `, ...args.map(redact));
     try {
       const result = await ipcRenderer.invoke(channel, ...args);
-      log.info(`[main → renderer] (response): '${channel}' → `, result);
+      log.info(`[main → renderer] (response): '${channel}' → `, redact(result));
       return result;
     } catch (error) {
       log.error(`[main → renderer] (error): '${channel}' → `, error);
@@ -17,7 +33,7 @@ const LoggingIPCWrapper = () => {
 
   const onWithLogging = (channel, callback) => {
     const wrapperCallback = (event, ...args) => {
-      log.info(`[main → renderer] (event): '${channel}' → `, ...args);
+      log.info(`[main → renderer] (event): '${channel}' → `, ...args.map(redact));
       callback(event, ...args);
     }
     ipcRenderer.on(channel, wrapperCallback);

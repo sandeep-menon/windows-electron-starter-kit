@@ -10,9 +10,13 @@ const redact = (value: any): any => {
   }
   if (value && typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value).map(([key, val]) => 
-        SENSITIVE_KEYS.includes(key.toLowerCase()) ? [key, '[REDACTED]'] : [key, redact(val)]
-      )
+      Object.entries(value).map(([key, val]) => {
+        // Normalize (drop separators) + substring match so prefixed/snake_case/
+        // kebab-case variants are caught too: access_token, x-api-key, client_secret...
+        // Deliberately broad - over-redacting a log is safer than leaking a secret.
+        const norm = key.toLowerCase().replace(/[_-]/g, '');
+        return SENSITIVE_KEYS.some((k) => norm.includes(k)) ? [key, '[REDACTED]'] : [key, redact(val)];
+      })
     )
   }
   return value;

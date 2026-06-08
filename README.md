@@ -180,20 +180,22 @@ flowchart TD
 
 The preload logs the full payload of every IPC request and response, which is invaluable for debugging but risky if a payload carries credentials. To prevent secrets from being written to disk, all logged payloads pass through a recursive `redact()` function (`src/preload/index.ts`) **before** they are logged.
 
-- Any object key whose name (case-insensitive) matches a known sensitive key is replaced with `[REDACTED]`.
+- A key is redacted if, after **normalizing** it (lowercasing and stripping `_` and `-`), it **contains** any known sensitive term as a substring. This matches the real-world variants APIs actually use — `access_token`, `api_key`, `x-api-key`, `client_secret`, `refreshToken`, `Set-Cookie` — not just the exact spellings.
 - Redaction is **recursive** — it descends into nested objects and arrays at any depth.
-- Default sensitive keys include: `password`, `token`, `secret`, `authorization`, `apikey`, `accesstoken`, `personalaccesstoken`, `pat`, `refreshtoken`, `cookie`.
+- Default sensitive terms include: `password`, `token`, `secret`, `authorization`, `apikey`, `accesstoken`, `personalaccesstoken`, `pat`, `refreshtoken`, `cookie`.
+
+The substring match is **deliberately broad**: it is a logging safety net, so it errs on the side of redacting too much (e.g. a field named `tokenCount` would also be scrubbed). Losing a little debug detail is a worthwhile trade for never leaking a credential to disk.
 
 Critically, **redaction only affects what is logged — never what is sent.** The actual IPC call always receives the original, unredacted arguments; only the copy written to the log is scrubbed.
 
 ```ts
 // Example — what reaches the log:
-invoke("save-credentials", { user: "alice", token: "sk-live-123" })
-// logged as: { user: "alice", token: "[REDACTED]" }
+invoke("save-credentials", { user: "alice", access_token: "sk-live-123" })
+// logged as: { user: "alice", access_token: "[REDACTED]" }
 // the handler still receives the real token
 ```
 
-To protect additional fields, add their key names to the `SENSITIVE_KEYS` array in `src/preload/index.ts`.
+To protect additional fields, add their key names to the `SENSITIVE_KEYS` array in `src/preload/index.ts` (see *Extending This Starter Kit* below).
 
 ## Security
 
@@ -225,6 +227,21 @@ preload: {
 ```
 
 By default electron-vite externalizes everything in `dependencies` (leaving runtime `require()` calls in the output, which a sandboxed preload cannot load); `exclude` opts a package **into** the bundle instead. After editing the list, restart `npm run dev` so the preload is rebuilt.
+
+### Redacting more sensitive fields from logs
+
+Logged IPC payloads are scrubbed by the `redact()` function in `src/preload/index.ts` (see *Sensitive-Data Redaction* above). To protect a new kind of secret, add a lowercase, separator-free **term** to the `SENSITIVE_KEYS` array:
+
+```ts
+// src/preload/index.ts
+const SENSITIVE_KEYS = [
+  'password', 'token', 'secret', 'authorization', 'apikey', 'accesstoken',
+  'personalaccesstoken', 'pat', 'refreshtoken', 'cookie',
+  'sessionid' // ← your new term: also catches session_id, sessionId, X-Session-ID, …
+];
+```
+
+Because matching is normalized (lowercased, `_`/`-` stripped) and substring-based, you only add the **core term once** — every prefixed, snake_case, kebab-case, and camelCase variant is then covered automatically. Keep terms lowercase with no separators so they match the normalized key. Redaction takes effect immediately on the next request once the preload is rebuilt.
 
 > **Main-process code is unaffected** — the main process is not sandboxed and can use dependencies normally, with no changes to this list.
 

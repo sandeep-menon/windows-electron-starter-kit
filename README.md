@@ -201,6 +201,33 @@ To protect additional fields, add their key names to the `SENSITIVE_KEYS` array 
 - External links opened from the app are delegated to the OS browser via `setWindowOpenHandler`, and new in-app window creation is denied by default.
 - Secrets in IPC payloads are redacted from logs (see above).
 
+## Extending This Starter Kit
+
+This kit is built to be extended. The sections below cover the common ways to grow it without breaking the guarantees it ships with. More will be added here over time.
+
+### Adding a dependency to the preload
+
+The renderer runs inside the **full Chromium sandbox** (`sandbox: true`), and a sandboxed preload only runs code that is **bundled into the preload itself** — it cannot resolve packages from `node_modules` at runtime. To keep that boundary intact, the preload is built as a **single, self-contained bundle** with every dependency inlined at build time.
+
+Because of this, any new package you `import` from `src/preload/` must be **bundled in**, not externalized. Add its package name to the `exclude` list in `electron.vite.config.ts`:
+
+```ts
+// electron.vite.config.ts
+preload: {
+  build: {
+    externalizeDeps: {
+      // Every dependency imported from src/preload/ goes here so it is bundled
+      // into the self-contained preload and stays available under the sandbox.
+      exclude: ['@electron-toolkit/preload', 'electron-log', 'your-new-package']
+    }
+  }
+}
+```
+
+By default electron-vite externalizes everything in `dependencies` (leaving runtime `require()` calls in the output, which a sandboxed preload cannot load); `exclude` opts a package **into** the bundle instead. After editing the list, restart `npm run dev` so the preload is rebuilt.
+
+> **Main-process code is unaffected** — the main process is not sandboxed and can use dependencies normally, with no changes to this list.
+
 ## Troubleshooting
 
 ### 1) Electron binary download fails

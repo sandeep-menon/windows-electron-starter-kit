@@ -1,6 +1,6 @@
 # Windows Electron Starter Kit
 
-An enterprise-grade, production-ready Electron starter kit for Windows desktop applications. It ships with a typed, secure IPC layer, structured and rotated logging with sensitive-data redaction, and a modern React + TypeScript UI — batteries included, with sensible defaults that hold up in production.
+An enterprise-grade, production-ready Electron starter kit for Windows desktop applications. It ships with a typed, runtime-validated IPC layer, a sandboxed renderer, structured and rotated logging with sensitive-data redaction, and a modern React + TypeScript UI — batteries included, with sensible defaults that hold up in production.
 
 ## Stack
 
@@ -10,6 +10,7 @@ An enterprise-grade, production-ready Electron starter kit for Windows desktop a
 | UI | [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
 | Styling | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
 | Notifications | [Sonner](https://sonner.emilkowal.ski/) |
+| Validation | [Zod](https://zod.dev/) |
 | Persistence | [electron-store](https://github.com/sindresorhus/electron-store) |
 | Logging | [electron-log](https://github.com/megahertz/electron-log) |
 | Auto-update | [electron-updater](https://www.electron.build/auto-update) (dependency available; not yet wired) |
@@ -55,7 +56,7 @@ npm run build:win
 src/
 ├── main/                     # Electron main process (Node.js)
 │   ├── index.ts              # App lifecycle, window creation, bootstrap
-│   ├── handler.ts            # Typed IPC handler registry
+│   ├── handler.ts            # IPC handlers + sender & schema validation
 │   └── utils/
 │       └── application.ts    # Logging setup, rotation, environment diagnostics
 ├── preload/                  # Secure bridge between main and renderer
@@ -67,13 +68,13 @@ src/
 │       ├── main.tsx
 │       └── components/ui/     # shadcn/ui components
 └── shared/                   # Code shared across all three processes
-    ├── protocol.ts           # IPC channel contract (single source of truth)
+    ├── protocol.ts           # IPC contract: Zod schemas + inferred types (single source of truth)
     └── types.ts              # Shared types (e.g. MainProcessResponse)
 ```
 
 ## Architecture
 
-Electron runs your code in three isolated contexts that cannot call each other directly. This kit treats the boundary between them as a first-class, **fully typed** contract.
+Electron runs your code in three isolated contexts that cannot call each other directly. This kit treats the boundary between them as a first-class, **fully typed and runtime-validated** contract.
 
 ```mermaid
 flowchart LR
@@ -84,7 +85,7 @@ flowchart LR
         Bridge["Typed API surface<br/>IPC logging + payload redaction"]
     end
     subgraph Main["Main Process — Node.js (privileged)"]
-        Handlers["ipcMain.handle()<br/>handler.ts"]
+        Handlers["ipcMain.handle()<br/>sender + schema validation"]
         Work["Filesystem / Network / OS"]
     end
 
@@ -98,33 +99,66 @@ flowchart LR
 
 - **Renderer** has no Node.js or OS access by design. It can only send the specific messages the preload exposes.
 - **Preload** is the single, controlled doorway. It uses `contextBridge.exposeInMainWorld` to publish a minimal `window.api` and nothing else.
-- **Main** performs all privileged work (network, filesystem, OS) inside handlers registered in `src/main/handler.ts`.
+- **Main** performs all privileged work (network, filesystem, OS) inside handlers registered in `src/main/handler.ts` — but only after validating the sender and the payload.
 
 ### Typed IPC contract
 
-Every IPC channel is declared once in `src/shared/protocol.ts`. The renderer's `window.api.invoke` and the main-process handler map are both derived from that single declaration, so a typo, a wrong parameter, or a changed return shape is caught at compile time across all three processes.
+Every IPC channel is declared **once**, in `src/shared/protocol.ts`, as a [Zod](https://zod.dev/) schema. That single declaration is the source of truth for *both* the compile-time types and the runtime validation:
 
 ```ts
 // src/shared/protocol.ts — the single source of truth
-export interface IPCInvocations {
-  "get-random-todo": { params: void; returns: MainProcessResponse }
-  "get-todo-by-id":  { params: { id: number }; returns: MainProcessResponse }
-}
+export const IPCParamSchemas = {
+  "get-random-todo": z.void(),
+  "get-todo-by-id":  z.object({ id: z.number().int().positive() }),
+} as const;
+
+// The typed contract is *inferred* from the schemas — no hand-written interface to keep in sync:
+export type IPCInvocations = {
+  [K in keyof typeof IPCParamSchemas]: {
+    params: z.infer<(typeof IPCParamSchemas)[K]>;
+    returns: MainProcessResponse;
+  };
+};
 ```
 
-The generic `invoke<K extends IPCChannel>` signature uses this contract to:
+From this one declaration, the generic `invoke<K extends IPCChannel>` signature is able to:
 
 - restrict `channel` to declared channel names only;
-- **require** a correctly-typed parameter argument when the channel declares one (`get-todo-by-id`), and **forbid** one when it does not (`get-random-todo`);
+- **require** a correctly-typed parameter argument when the channel declares one (`get-todo-by-id`), and **forbid** one when it does not (`get-random-todo`, declared `z.void()`);
 - resolve the return type automatically (`Promise<MainProcessResponse>`).
 
-**Adding a channel** is therefore a three-step, compiler-guided change:
+So a typo, a wrong parameter, or a changed return shape is caught at compile time across all three processes.
 
-1. Declare it in `src/shared/protocol.ts`.
-2. Implement it in the `handlers` map in `src/main/handler.ts` (the mapped type forces this — the build fails until you do).
-3. Call `window.api.invoke("your-channel", params)` from the renderer.
+### Runtime validation & trusted senders
 
-No changes to the preload are required — the generic bridge adapts automatically.
+Types only exist at compile time — they are erased before the app runs, so they cannot guard the data that actually crosses the process boundary. To close that gap, `registerHandlers()` in `src/main/handler.ts` wraps **every** handler with two checks before it runs:
+
+1. **Trusted-sender check.** The handler inspects `event.senderFrame` and rejects any message that did not originate from our own renderer (the electron-vite dev-server origin in development, a `file:` URL in a packaged build). This is defense in depth: if untrusted content were ever loaded into a frame, it still could not drive privileged handlers.
+2. **Schema validation.** The incoming params are run through the channel's Zod schema with `safeParse`. If validation fails, the handler returns a structured `{ success: false, error }` **without executing** — no malformed value ever reaches your business logic, a network call, or a filesystem path.
+
+Both checks are applied centrally, so they are **automatic for every channel** — including any you add later. Declaring the schema is all it takes; you never write per-handler validation code. (See [Extending This Starter Kit](#extending-this-starter-kit) for the add-a-channel recipe.)
+
+## Security
+
+Security here isn't one feature — it's layered across the process model, the IPC boundary, and what gets written to disk.
+
+**Process isolation**
+
+- The renderer runs inside the **full Chromium sandbox** (`sandbox: true`), with `contextIsolation: true` and `nodeIntegration: false` set explicitly. The UI has no access to Node.js, `require`, or `ipcRenderer` — its only capability is the minimal, typed `window.api` published via `contextBridge`.
+- The **preload is a single, self-contained bundle**: every dependency it uses is inlined at build time, so nothing is resolved from `node_modules` at runtime and the sandbox boundary stays intact.
+
+**The IPC boundary**
+
+- **Trusted-sender validation** — handlers verify `event.senderFrame` and reject messages that aren't from our own renderer (see [Runtime validation & trusted senders](#runtime-validation--trusted-senders)).
+- **Runtime payload validation** — every channel's params are validated against its Zod schema before the handler runs, so the type contract is enforced at runtime, not just at compile time.
+
+**Content & navigation**
+
+- External links are delegated to the OS browser via `setWindowOpenHandler`, and new in-app window creation is **denied by default**.
+
+**Log-data protection**
+
+- Secrets in IPC payloads are scrubbed from logs before they are written to disk (see [Sensitive-Data Redaction](#sensitive-data-redaction)).
 
 ## Logging
 
@@ -165,7 +199,7 @@ This means logging is **always on** — file logging is never silently disabled.
 - **Renderer and preload logs** are forwarded to the main process and written to the same file via `log.initialize()` (the v5 main↔renderer bridge). Each process uses its correct entrypoint: `electron-log/main` in main, `electron-log/renderer` in preload.
 - **Uncaught exceptions and unhandled promise rejections** are captured automatically via `log.errorHandler.startCatching()` — the failures you most want a record of are never lost.
 - **Startup diagnostics:** a structured environment snapshot (app version, Electron/Node/Chromium versions, OS, key paths, process info) is logged at launch to speed up issue triage.
-- **IPC tracing:** every `invoke`/`on` request, response, and error is logged with its channel name and payload (see redaction below).
+- **IPC tracing:** every `invoke`/`on` request, response, and error is logged with its channel name and payload (see [redaction](#sensitive-data-redaction) below).
 
 ```mermaid
 flowchart TD
@@ -195,17 +229,42 @@ invoke("save-credentials", { user: "alice", access_token: "sk-live-123" })
 // the handler still receives the real token
 ```
 
-To protect additional fields, add their key names to the `SENSITIVE_KEYS` array in `src/preload/index.ts` (see *Extending This Starter Kit* below).
-
-## Security
-
-- **Context isolation** is enabled and the renderer cannot access Node.js, `require`, or `ipcRenderer` directly. The only surface available to the UI is the minimal, typed `window.api` published via `contextBridge`.
-- External links opened from the app are delegated to the OS browser via `setWindowOpenHandler`, and new in-app window creation is denied by default.
-- Secrets in IPC payloads are redacted from logs (see above).
+To protect additional fields, add their key names to the `SENSITIVE_KEYS` array in `src/preload/index.ts` (see [Extending This Starter Kit](#extending-this-starter-kit) below).
 
 ## Extending This Starter Kit
 
-This kit is built to be extended. The sections below cover the common ways to grow it without breaking the guarantees it ships with. More will be added here over time.
+This kit is built to be extended. The recipes below cover the common ways to grow it without breaking the guarantees it ships with. More will be added here over time.
+
+### Adding an IPC channel
+
+Because the schema is the single source of truth, adding a channel is a compiler-guided change that gives you typing **and** runtime validation for free:
+
+1. **Declare the schema** in `IPCParamSchemas` (`src/shared/protocol.ts`). Use `z.void()` for a channel that takes no params, or a `z.object({ ... })` for one that does:
+
+   ```ts
+   // src/shared/protocol.ts
+   export const IPCParamSchemas = {
+     "get-random-todo": z.void(),
+     "get-todo-by-id":  z.object({ id: z.number().int().positive() }),
+     "save-note":       z.object({ title: z.string().min(1), body: z.string() }), // ← new
+   } as const;
+   ```
+
+2. **Implement the handler** in the `handlers` map in `src/main/handler.ts`. The mapped type forces this — the build fails until you do, and your handler receives params already validated against the schema:
+
+   ```ts
+   "save-note": async (_event, params) => saveNote(params), // params is typed AND validated
+   ```
+
+3. **Call it** from the renderer — fully typed, with autocomplete on the channel name and params:
+
+   ```ts
+   await window.api.invoke("save-note", { title: "Hi", body: "..." });
+   ```
+
+No preload changes are ever required — the generic bridge adapts automatically, and the sender + schema checks are applied centrally for the new channel.
+
+> **Heads up if you change how the renderer is loaded.** The trusted-sender check in `isTrustedSender()` (`src/main/handler.ts`) assumes the renderer is served from the electron-vite **dev-server origin** in development and from a **`file:` URL** in a packaged build. If you load the renderer some other way — a **custom scheme** (e.g. `app://`) or a **remote URL** — that check will reject *every* IPC call with `"Unauthorized sender"`. Update the allowed origin(s) in `isTrustedSender()` to match your setup when you do this.
 
 ### Adding a dependency to the preload
 
@@ -228,9 +287,11 @@ preload: {
 
 By default electron-vite externalizes everything in `dependencies` (leaving runtime `require()` calls in the output, which a sandboxed preload cannot load); `exclude` opts a package **into** the bundle instead. After editing the list, restart `npm run dev` so the preload is rebuilt.
 
+> **Main-process code is unaffected** — the main process is not sandboxed and can use dependencies normally, with no changes to this list.
+
 ### Redacting more sensitive fields from logs
 
-Logged IPC payloads are scrubbed by the `redact()` function in `src/preload/index.ts` (see *Sensitive-Data Redaction* above). To protect a new kind of secret, add a lowercase, separator-free **term** to the `SENSITIVE_KEYS` array:
+Logged IPC payloads are scrubbed by the `redact()` function in `src/preload/index.ts` (see [Sensitive-Data Redaction](#sensitive-data-redaction) above). To protect a new kind of secret, add a lowercase, separator-free **term** to the `SENSITIVE_KEYS` array:
 
 ```ts
 // src/preload/index.ts
@@ -242,8 +303,6 @@ const SENSITIVE_KEYS = [
 ```
 
 Because matching is normalized (lowercased, `_`/`-` stripped) and substring-based, you only add the **core term once** — every prefixed, snake_case, kebab-case, and camelCase variant is then covered automatically. Keep terms lowercase with no separators so they match the normalized key. Redaction takes effect immediately on the next request once the preload is rebuilt.
-
-> **Main-process code is unaffected** — the main process is not sandboxed and can use dependencies normally, with no changes to this list.
 
 ## Troubleshooting
 

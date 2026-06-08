@@ -1,10 +1,15 @@
 import { ipcMain } from "electron";
 import log from "electron-log";
-import type { IPCChannel, IPCInvocations } from "../shared/protocol";
+import { is } from "@electron-toolkit/utils";
+import { IPCParamSchemas, type IPCChannel, type IPCInvocations } from "../shared/protocol";
+import type { MainProcessResponse } from "../shared/types";
 
 async function getRandomTodo() {
     try {
         const response = await fetch("https://dummyjson.com/todos/random");
+        if (!response.ok) {
+            throw new Error(`Random Todo could not be loaded (status ${response.status})`);
+        }
         const result = await response.json();
         return {
             success: true,
@@ -49,9 +54,49 @@ const handlers: {
     "get-todo-by-id": async (_event, params) => getTodoById(params.id),
 }
 
+/**
+ * Defense in depth: verify an IPC message originated from our own renderer,
+ * not from untrusted content that may have been loaded into a frame.
+ */
+function isTrustedSender(event: Electron.IpcMainInvokeEvent): boolean {
+    const url = event.senderFrame?.url;
+    if (!url) return false;
+    try {
+        const { protocol, origin } = new URL(url);
+        if (is.dev) {
+            const devUrl = process.env["ELECTRON_RENDERER_URL"];
+            return !!devUrl && origin === new URL(devUrl).origin;
+        }
+        return protocol === "file:";
+    } catch {
+        return false;
+    }
+}
+
 export const registerHandlers = () => {
-    for (const [channel, handler] of Object.entries(handlers)) {
-        ipcMain.handle(channel, handler);
+    for (const channel of Object.keys(handlers) as IPCChannel[]) {
+        ipcMain.handle(channel, async (event, rawParams): Promise<MainProcessResponse> => {
+            // Sender validation - reject anything not from our own renderer.
+            if (!isTrustedSender(event)) {
+                log.warn(`[ipc] Rejected '${channel}' from untrusted sender ${event.senderFrame?.url}`);
+                return { success: false, error: "Unauthorized sender" };
+            }
+
+            // Runtime param validation against the channel's schema (single source of truth).
+            const parsed = IPCParamSchemas[channel].safeParse(rawParams);
+            if (!parsed.success) {
+                log.warn(`[ipc] Invalid params for '${channel}': ${parsed.error.message}`);
+                return { success: false, error: `Invalid params for '${channel}'` };
+            }
+
+            // Dispatch to the typed handler with the validated params.
+            const handler = handlers[channel] as (
+                event: Electron.IpcMainInvokeEvent,
+                params: unknown
+            ) => Promise<MainProcessResponse>;
+
+            return handler(event, parsed.data);
+        });
     }
 
     return () => {

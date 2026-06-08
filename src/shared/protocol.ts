@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MainProcessResponse } from "./types";
+import { MainProcessResponse, Todo } from "./types";
 
 /**
  * Renderer → Main invocations (request/response)
@@ -19,13 +19,26 @@ export const IPCParamSchemas = {
 export type IPCChannel = keyof typeof IPCParamSchemas;
 
 /**
+ * Per channel response data - the 'T' in 'MainProcessResponse<T>' for each channel
+ * 
+ * extends 'Record<IPCChannel, unknown>' forces this map to cover every cahnnel:
+ * add a channel to 'IPCParamSchemas' and the compiler makes you declare its 
+ * response-data type here too. Use the data shape your handler resolves with on success.
+ */
+export interface IPCResponseData extends Record<IPCChannel, unknown> {
+    "get-random-todo": Todo,
+    "get-todo-by-id": Todo
+}
+
+/**
  * The typed request/response contract, derived from 'IPCParamSchemas'.
- * 'params' is inferred from each channel's schema; 'returns' is the shared response shape.
+ * 'params' is inferred from each channel's schema; 'returns' wraps each channel's
+ * data type from IPCResponseData
  */
 export type IPCInvocations = {
     [K in IPCChannel]: {
         params: z.infer<(typeof IPCParamSchemas)[K]>;
-        returns: MainProcessResponse;
+        returns: MainProcessResponse<IPCResponseData[K]>;
     }
 }
 

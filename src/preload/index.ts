@@ -56,13 +56,20 @@ const LoggingIPCWrapper = () => {
   }
 }
 
+const rendererLog = {
+  error: (message: string, ...args: unknown[]) => log.error(message, ...args.map(redact)),
+  warn: (message: string, ...args: unknown[]) => log.warn(message, ...args.map(redact)),
+  info: (message: string, ...args: unknown[]) => log.info(message, ...args.map(redact))
+}
+
 const loggingIPC = LoggingIPCWrapper();
 
 // Custom APIs for renderer
 const api = {
   invoke: loggingIPC.invoke,
   on: loggingIPC.on,
-  removeListener: loggingIPC.removeListener
+  removeListener: loggingIPC.removeListener,
+  log: rendererLog
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -112,11 +112,17 @@ export const IPCParamSchemas = {
   "get-todo-by-id":  z.object({ id: z.number().int().positive() }),
 } as const;
 
+// Each channel also declares the shape of the data it resolves with on success:
+export interface IPCResponseData extends Record<IPCChannel, unknown> {
+  "get-random-todo": Todo;
+  "get-todo-by-id":  Todo;
+}
+
 // The typed contract is *inferred* from the schemas — no hand-written interface to keep in sync:
 export type IPCInvocations = {
   [K in keyof typeof IPCParamSchemas]: {
-    params: z.infer<(typeof IPCParamSchemas)[K]>;
-    returns: MainProcessResponse;
+    params:  z.infer<(typeof IPCParamSchemas)[K]>;
+    returns: MainProcessResponse<IPCResponseData[K]>;
   };
 };
 ```
@@ -125,7 +131,7 @@ From this one declaration, the generic `invoke<K extends IPCChannel>` signature 
 
 - restrict `channel` to declared channel names only;
 - **require** a correctly-typed parameter argument when the channel declares one (`get-todo-by-id`), and **forbid** one when it does not (`get-random-todo`, declared `z.void()`);
-- resolve the return type automatically (`Promise<MainProcessResponse>`).
+- resolve the return type automatically — e.g. `Promise<MainProcessResponse<Todo>>` — so `resp.data` is typed per channel.
 
 So a typo, a wrong parameter, or a changed return shape is caught at compile time across all three processes.
 
@@ -137,6 +143,37 @@ Types only exist at compile time — they are erased before the app runs, so the
 2. **Schema validation.** The incoming params are run through the channel's Zod schema with `safeParse`. If validation fails, the handler returns a structured `{ success: false, error }` **without executing** — no malformed value ever reaches your business logic, a network call, or a filesystem path.
 
 Both checks are applied centrally, so they are **automatic for every channel** — including any you add later. Declaring the schema is all it takes; you never write per-handler validation code. (See [Extending This Starter Kit](#extending-this-starter-kit) for the add-a-channel recipe.)
+
+### Typed responses & structured errors
+
+Every handler resolves with a `MainProcessResponse<T>` — a **discriminated union**, not a loose bag of optional fields:
+
+```ts
+// src/shared/types.ts
+export type MainProcessResponse<T = unknown> =
+  | { success: true;  data: T }
+  | { success: false; error: MainProcessError };
+
+export interface MainProcessError {
+  code: MainProcessErrorCode;   // "NOT_FOUND" | "INVALID_PARAMS" | "NETWORK" | … (open-ended)
+  message: string;              // human-readable
+  details?: unknown;            // e.g. the Zod issue list for INVALID_PARAMS
+}
+```
+
+Because `success` is the discriminant, checking it **narrows the type** in the renderer — no casts, no optional-field guessing:
+
+```ts
+const resp = await window.api.invoke("get-todo-by-id", { id });
+if (!resp.success) {
+  if (resp.error.code === "NOT_FOUND") { /* show a friendly empty state */ }
+  toast.error(resp.error.message);
+} else {
+  toast.info(resp.data.todo);   // resp.data is typed `Todo` here
+}
+```
+
+The structured `error.code` lets the UI react per failure type (retry, redirect, friendly message) rather than string-matching, and `details` carries machine-readable context (the param-validation failures attach the full Zod issue list). The per-channel `data` type comes from `IPCResponseData`, so `resp.data` is precisely typed for every channel — the `any` is gone from end to end.
 
 ## Security
 
@@ -196,18 +233,19 @@ This means logging is **always on** — file logging is never silently disabled.
 
 ### What gets captured
 
-- **Renderer and preload logs** are forwarded to the main process and written to the same file via `log.initialize()` (the v5 main↔renderer bridge). Each process uses its correct entrypoint: `electron-log/main` in main, `electron-log/renderer` in preload.
-- **Uncaught exceptions and unhandled promise rejections** are captured automatically via `log.errorHandler.startCatching()` — the failures you most want a record of are never lost.
+- **Every process logs to one file.** Main logs via `electron-log/main`, and the preload via `electron-log/renderer` (forwarded through the v5 bridge set up by `log.initialize()`). The **sandboxed React renderer has no direct IPC**, so it logs through a small `window.api.log` bridge the preload exposes — calls run in the preload context, where the renderer transport works, and are redacted like any other payload.
+- **Unexpected errors are captured automatically — in every process.** The main process uses `log.errorHandler.startCatching()`. The renderer gets the same safety net without any per-error code: global `error` / `unhandledrejection` handlers (`src/renderer/src/lib/errorLogging.ts`, installed once at startup) catch uncaught errors and rejected promises, and a React **error boundary** (`src/renderer/src/components/ErrorBoundary.tsx`) catches render-time failures (which React routes away from `window.onerror`) and shows a recoverable fallback instead of a blank window. You throw or reject naturally; the stack is recorded.
 - **Startup diagnostics:** a structured environment snapshot (app version, Electron/Node/Chromium versions, OS, key paths, process info) is logged at launch to speed up issue triage.
 - **IPC tracing:** every `invoke`/`on` request, response, and error is logged with its channel name and payload (see [redaction](#sensitive-data-redaction) below).
 
 ```mermaid
 flowchart TD
-    R["Renderer logs<br/>(electron-log/renderer)"] --> B["IPC bridge<br/>log.initialize()"]
+    RE["Renderer errors<br/>(global handlers + ErrorBoundary)"] --> RL
+    RL["Renderer logs<br/>window.api.log (runs in preload)"] --> B
     P["Preload logs<br/>(electron-log/renderer)"] --> B
-    M["Main logs<br/>(electron-log/main)"] --> F
-    E["Uncaught errors<br/>errorHandler.startCatching()"] --> F
-    B --> F["Single rotated log file<br/>userData/logs/app_*.log<br/>(keep latest 5)"]
+    B["main↔renderer bridge<br/>log.initialize()"] --> F
+    M["Main logs (electron-log/main)<br/>+ errorHandler.startCatching()"] --> F
+    F["Single rotated log file<br/>userData/logs/app_*.log<br/>(keep latest 5)"]
 ```
 
 ## Sensitive-Data Redaction
@@ -250,16 +288,28 @@ Because the schema is the single source of truth, adding a channel is a compiler
    } as const;
    ```
 
-2. **Implement the handler** in the `handlers` map in `src/main/handler.ts`. The mapped type forces this — the build fails until you do, and your handler receives params already validated against the schema:
+2. **Declare the response data type** in `IPCResponseData` (`src/shared/protocol.ts`). The `extends Record<IPCChannel, unknown>` constraint makes this a **compile error to skip** — every channel must say what its `data` looks like on success:
+
+   ```ts
+   // src/shared/protocol.ts
+   export interface IPCResponseData extends Record<IPCChannel, unknown> {
+     "get-random-todo": Todo;
+     "get-todo-by-id":  Todo;
+     "save-note":       Note; // ← new
+   }
+   ```
+
+3. **Implement the handler** in the `handlers` map in `src/main/handler.ts`. The mapped type forces this — the build fails until you do, and your handler receives params already validated against the schema and must return `MainProcessResponse<Note>`:
 
    ```ts
    "save-note": async (_event, params) => saveNote(params), // params is typed AND validated
    ```
 
-3. **Call it** from the renderer — fully typed, with autocomplete on the channel name and params:
+4. **Call it** from the renderer — fully typed, with autocomplete on the channel name, params, and `resp.data`:
 
    ```ts
-   await window.api.invoke("save-note", { title: "Hi", body: "..." });
+   const resp = await window.api.invoke("save-note", { title: "Hi", body: "..." });
+   if (resp.success) { /* resp.data is typed `Note` */ }
    ```
 
 No preload changes are ever required — the generic bridge adapts automatically, and the sender + schema checks are applied centrally for the new channel.

@@ -2,15 +2,21 @@ import { ipcMain } from "electron";
 import log from "electron-log";
 import { is } from "@electron-toolkit/utils";
 import { IPCParamSchemas, type IPCChannel, type IPCInvocations } from "../shared/protocol";
-import type { MainProcessResponse } from "../shared/types";
+import type { MainProcessResponse, Todo } from "../shared/types";
 
-async function getRandomTodo() {
+async function getRandomTodo(): Promise<MainProcessResponse<Todo>> {
     try {
         const response = await fetch("https://dummyjson.com/todos/random");
         if (!response.ok) {
-            throw new Error(`Random Todo could not be loaded (status ${response.status})`);
+            return {
+                success: false,
+                error: {
+                    code: "NETWORK",
+                    message: `Random Todo could not be loaded (status ${response.status})`
+                }
+            };
         }
-        const result = await response.json();
+        const result = (await response.json()) as Todo;
         return {
             success: true,
             data: result
@@ -19,28 +25,40 @@ async function getRandomTodo() {
         log.error(`Failed at getRandomTodo(): ${error}`);
         return {
             success: false,
-            error: error instanceof Error ? error.message : String(error)
-        }
+            error: {
+                code: "NETWORK",
+                message: error instanceof Error ? error.message : String(error)
+            }
+        };
     }
 }
 
-async function getTodoById(id: number) {
+async function getTodoById(id: number): Promise<MainProcessResponse<Todo>> {
     try {
         const response = await fetch(`https://dummyjson.com/todos/${id}`);
         if (!response.ok) {
-            throw new Error(`Todo ${id} not found (status ${response.status})`);
+            return {
+                success: false,
+                error: {
+                    code: response.status === 404 ? "NOT_FOUND" : "NETWORK",
+                    message: `Todo ${id} could not be loaded (status ${response.status})`
+                }
+            };
         }
-        const result = await response.json();
+        const result = (await response.json()) as Todo;
         return {
             success: true,
             data: result
-        }
+        };
     } catch (error) {
         log.error(`Failed at getTodoById(${id}): ${error}`);
         return {
             success: false,
-            error: error instanceof Error ? error.message : String(error)
-        }
+            error: {
+                code: "NETWORK",
+                message: error instanceof Error ? error.message : String(error)
+            }
+        };
     }
 }
 
@@ -55,7 +73,7 @@ const handlers: {
 }
 
 /**
- * Defense in depth: verify an IPC message originated from our own renderer,
+ * Verify an IPC message originated from our own renderer,
  * not from untrusted content that may have been loaded into a frame.
  */
 function isTrustedSender(event: Electron.IpcMainInvokeEvent): boolean {
@@ -79,14 +97,24 @@ export const registerHandlers = () => {
             // Sender validation - reject anything not from our own renderer.
             if (!isTrustedSender(event)) {
                 log.warn(`[ipc] Rejected '${channel}' from untrusted sender ${event.senderFrame?.url}`);
-                return { success: false, error: "Unauthorized sender" };
+                return {
+                    success: false,
+                    error: { code: "UNAUTHORIZED_SENDER", message: "Unauthorized sender" }
+                };
             }
 
             // Runtime param validation against the channel's schema (single source of truth).
             const parsed = IPCParamSchemas[channel].safeParse(rawParams);
             if (!parsed.success) {
                 log.warn(`[ipc] Invalid params for '${channel}': ${parsed.error.message}`);
-                return { success: false, error: `Invalid params for '${channel}'` };
+                return {
+                    success: false,
+                    error: {
+                        code: "INVALID_PARAMS",
+                        message: `Invalid params for '${channel}'`,
+                        details: parsed.error.issues
+                    }
+                };
             }
 
             // Dispatch to the typed handler with the validated params.

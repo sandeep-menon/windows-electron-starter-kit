@@ -38,6 +38,16 @@ declare global {
         channel: K,
         callback: (event: any, data: IPCEvents[K]) => void
       ): void
+
+      /**
+       * Forward a log entry to the main-process log file (args are redacted).
+       * Used by the global error handlers; available for intentional logging too.
+       */
+      log: {
+        error(message: string, ...args: unknown[]): void
+        warn(message: string, ...args: unknown[]): void
+        info(message: string, ...args: unknown[]): void
+      }
     }
   }
 }

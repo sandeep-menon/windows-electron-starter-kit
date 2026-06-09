@@ -52,6 +52,13 @@ export default function App() {
     }
   }
 
+  const handleOpenChildWindow = async (): Promise<void> => {
+    const resp = await window.api.invoke("open-child-window");
+    if (!resp.success) {
+      toast.error(resp.error.message);
+    }
+  }
+
   return (
     <>
       <Background />
@@ -95,6 +102,7 @@ export default function App() {
             Load todo by ID
           </Button>
         </div>
+        <Button variant={"secondary"} onClick={handleOpenChildWindow}>Open child window</Button>
         <Button variant={"destructive"} onClick={() => setBoom(true)}>Throw an error</Button>
       </main>
     </>

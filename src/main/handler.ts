@@ -1,8 +1,9 @@
-import { ipcMain } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 import log from "electron-log";
 import { is } from "@electron-toolkit/utils";
 import { IPCParamSchemas, type IPCChannel, type IPCInvocations } from "../shared/protocol";
 import type { MainProcessResponse, Todo } from "../shared/types";
+import { createWindow } from "./utils/application";
 
 async function getRandomTodo(): Promise<MainProcessResponse<Todo>> {
     try {
@@ -70,6 +71,22 @@ const handlers: {
 } = {
     "get-random-todo": async (_event, _params) => getRandomTodo(),
     "get-todo-by-id": async (_event, params) => getTodoById(params.id),
+    "open-child-window": async (event) => {
+        try {
+            const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+            createWindow({ entry: "child", parent });
+            return { success: true, data: undefined };
+        } catch (error) {
+            log.error(`Failed to open child window: ${error}`);
+            return {
+                success: false,
+                error: {
+                    code: "UNKNOWN",
+                    message: error instanceof Error ? error.message : String(error)
+                }
+            };
+        }
+    }
 }
 
 /**

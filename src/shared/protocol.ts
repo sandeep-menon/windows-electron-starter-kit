@@ -14,6 +14,7 @@ import { MainProcessResponse, Todo } from "./types";
 export const IPCParamSchemas = {
     "get-random-todo": z.void(),
     "get-todo-by-id": z.object({ id: z.number().int().positive() }),
+    "open-child-window": z.void(),
 } as const;
 
 export type IPCChannel = keyof typeof IPCParamSchemas;
@@ -27,7 +28,8 @@ export type IPCChannel = keyof typeof IPCParamSchemas;
  */
 export interface IPCResponseData extends Record<IPCChannel, unknown> {
     "get-random-todo": Todo,
-    "get-todo-by-id": Todo
+    "get-todo-by-id": Todo,
+    "open-child-window": void,
 }
 
 /**

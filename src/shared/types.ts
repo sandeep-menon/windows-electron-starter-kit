@@ -31,3 +31,7 @@ export interface Todo {
     completed: boolean;
     userId: number;
 }
+
+export interface StoreSchema {
+    firstName: string;
+}

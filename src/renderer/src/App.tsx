@@ -4,6 +4,7 @@ import { Background } from "./components/Background";
 import ThemeToggle from "./components/ThemeToggle";
 import { Button } from "./components/ui/button";
 import { Loader2Icon } from "lucide-react";
+import { useFirstName } from "./hooks/useFirstName";
 
 export default function App() {
   const [todoId, setTodoId] = useState("1");
@@ -15,6 +16,8 @@ export default function App() {
 
   const parsedId = Number(todoId);
   const idValid = todoId.trim() !== "" && Number.isInteger(parsedId) && parsedId > 0;
+
+  const firstName = useFirstName();
 
   const handleClickMe = (): void => {
     toast.success("You clicked me!");
@@ -68,7 +71,7 @@ export default function App() {
       </div>
 
       <main className="relative z-1 flex h-screen flex-col items-center justify-center gap-4">
-        <h1 className="font-serif text-3xl font-light text-foreground">Hello, stranger!</h1>
+        <h1 className="font-serif text-3xl font-light text-foreground">Hello, {firstName || "stranger"}</h1>
 
         <div className="flex gap-2">
           <Button onClick={handleLoadRandom} disabled={busy}>

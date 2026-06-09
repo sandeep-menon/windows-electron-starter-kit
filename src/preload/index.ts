@@ -41,18 +41,15 @@ const LoggingIPCWrapper = () => {
       callback(event, ...args);
     }
     ipcRenderer.on(channel, wrapperCallback);
-    return wrapperCallback;
-  }
-
-  const offWithLogging = (channel, callback) => {
-    log.info(`[preload] Removing listener: '${channel}'`);
-    ipcRenderer.removeListener(channel, callback);
+    return () => {
+      log.info(`[preload] Removing listener: '${channel}'`);
+      ipcRenderer.removeListener(channel, wrapperCallback);
+    }
   }
 
   return {
     invoke: invokeWithLogging,
-    on: onWithLogging,
-    removeListener: offWithLogging
+    on: onWithLogging
   }
 }
 
@@ -68,7 +65,6 @@ const loggingIPC = LoggingIPCWrapper();
 const api = {
   invoke: loggingIPC.invoke,
   on: loggingIPC.on,
-  removeListener: loggingIPC.removeListener,
   log: rendererLog
 }
 

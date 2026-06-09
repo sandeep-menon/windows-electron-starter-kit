@@ -20,24 +20,14 @@ declare global {
       ): Promise<IPCInvocations[K]["returns"]>
 
       /**
-       * Listen to events from the main process
-       * @param channel - The event channel name
-       * @param callback - Callback function to handle the event
+       * Subscribe to an event from the main process.
+       * @returns an unsubscribe function - call it (e.g. in a useEffect cleanup)
+       * to remove the listener.
        */
       on<K extends IPCEventChannel>(
         channel: K,
         callback: (event: any, data: IPCEvents[K]) => void
-      ): void
-
-      /**
-       * Remove event listener
-       * @param channel - The event channel name
-       * @param callback - The callback function to remove
-       */
-      removeListener<K extends IPCEventChannel>(
-        channel: K,
-        callback: (event: any, data: IPCEvents[K]) => void
-      ): void
+      ): () => void
 
       /**
        * Forward a log entry to the main-process log file (args are redacted).

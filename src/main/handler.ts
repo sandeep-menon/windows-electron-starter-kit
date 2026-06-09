@@ -4,6 +4,8 @@ import { is } from "@electron-toolkit/utils";
 import { IPCParamSchemas, type IPCChannel, type IPCInvocations } from "../shared/protocol";
 import type { MainProcessResponse, Todo } from "../shared/types";
 import { createWindow } from "./utils/application";
+import { getStore } from "./utils/store";
+import { broadcast } from "./utils/events";
 
 async function getRandomTodo(): Promise<MainProcessResponse<Todo>> {
     try {
@@ -78,6 +80,36 @@ const handlers: {
             return { success: true, data: undefined };
         } catch (error) {
             log.error(`Failed to open child window: ${error}`);
+            return {
+                success: false,
+                error: {
+                    code: "UNKNOWN",
+                    message: error instanceof Error ? error.message : String(error)
+                }
+            };
+        }
+    },
+    "set-first-name": async (_event, params) => {
+        try {
+            getStore().set("firstName", params.firstName);
+            broadcast("first-name-changed", params.firstName);
+            return { success: true, data: undefined };
+        } catch (error) {
+            log.error(`Failed to persist first name: ${error}`);
+            return {
+                success: false,
+                error: {
+                    code: "UNKNOWN",
+                    message: error instanceof Error ? error.message : String(error)
+                }
+            };
+        }
+    },
+    "get-first-name": async () => {
+        try {
+            return { success: true, data: getStore().get("firstName", "") };
+        } catch (error) {
+            log.error(`Failed to read first name: ${error}`);
             return {
                 success: false,
                 error: {

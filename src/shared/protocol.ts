@@ -15,6 +15,8 @@ export const IPCParamSchemas = {
     "get-random-todo": z.void(),
     "get-todo-by-id": z.object({ id: z.number().int().positive() }),
     "open-child-window": z.void(),
+    "set-first-name": z.object({ firstName: z.string().trim().min(1) }),
+    "get-first-name": z.void(),
 } as const;
 
 export type IPCChannel = keyof typeof IPCParamSchemas;
@@ -30,6 +32,8 @@ export interface IPCResponseData extends Record<IPCChannel, unknown> {
     "get-random-todo": Todo,
     "get-todo-by-id": Todo,
     "open-child-window": void,
+    "set-first-name": void,
+    "get-first-name": string,
 }
 
 /**
@@ -48,7 +52,7 @@ export type IPCInvocations = {
  * Main → Renderer events
  */
 export interface IPCEvents {
-    // Add event channels here...
+    "first-name-changed": string;
 }
 
 export type IPCEventChannel = keyof IPCEvents;

@@ -55,21 +55,26 @@ npm run build:win
 ```
 src/
 ├── main/                     # Electron main process (Node.js)
-│   ├── index.ts              # App lifecycle, window creation, bootstrap
+│   ├── index.ts              # App lifecycle + bootstrap
 │   ├── handler.ts            # IPC handlers + sender & schema validation
 │   └── utils/
-│       └── application.ts    # Logging setup, rotation, environment diagnostics
+│       ├── application.ts    # Window factory (createWindow), logging setup, rotation, diagnostics
+│       ├── store.ts          # electron-store instance (typed, lazy singleton)
+│       └── events.ts         # Typed main→renderer broadcast helper
 ├── preload/                  # Secure bridge between main and renderer
 │   ├── index.ts              # contextBridge API + IPC logging + payload redaction
 │   └── index.d.ts            # Typed `window.api` declarations
 ├── renderer/                 # React application (UI)
 │   └── src/
-│       ├── App.tsx
-│       ├── main.tsx
-│       └── components/ui/     # shadcn/ui components
+│       ├── App.tsx           # Main-window root (entry "#main")
+│       ├── Child.tsx         # Child-window root (entry "#child")
+│       ├── main.tsx          # Picks the root component from the URL hash
+│       ├── hooks/
+│       │   └── useFirstName.ts  # Reads + live-subscribes to persisted state
+│       └── components/ui/    # shadcn/ui components
 └── shared/                   # Code shared across all three processes
-    ├── protocol.ts           # IPC contract: Zod schemas + inferred types (single source of truth)
-    └── types.ts              # Shared types (e.g. MainProcessResponse)
+    ├── protocol.ts           # IPC contract: Zod schemas + inferred types + events (single source of truth)
+    └── types.ts              # Shared types (MainProcessResponse, StoreSchema, …)
 ```
 
 ## Architecture
@@ -174,6 +179,154 @@ if (!resp.success) {
 ```
 
 The structured `error.code` lets the UI react per failure type (retry, redirect, friendly message) rather than string-matching, and `details` carries machine-readable context (the param-validation failures attach the full Zod issue list). The per-channel `data` type comes from `IPCResponseData`, so `resp.data` is precisely typed for every channel — the `any` is gone from end to end.
+
+## Multi-Window Architecture
+
+Every window — the main window and any child window — is created through a single factory, `createWindow({ entry, parent })`, in `src/main/utils/application.ts`. Window options (the Chromium sandbox, dimensions, the external-link handler) are therefore defined in exactly one place and can never drift between windows.
+
+Two ideas make multiple windows ergonomic:
+
+**1. One bundle, many "screens" — chosen before React mounts.**
+
+There is a single renderer bundle and a single `index.html`. Which root component a window renders is decided by an `entry` value the main process passes as a **URL hash** (`#main`, `#child`):
+
+```ts
+// src/main/utils/application.ts
+export function createWindow(
+  { entry, parent }: { entry: AppEntry; parent?: BrowserWindow }
+): BrowserWindow {
+  // ...shared BrowserWindow options...
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    window.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#${entry}`);
+  } else {
+    window.loadFile(join(__dirname, "../renderer/index.html"), { hash: entry });
+  }
+  return window;
+}
+```
+
+`main.tsx` reads that hash **synchronously**, at module-evaluation time, and mounts the matching component:
+
+```tsx
+// src/renderer/src/main.tsx
+const Root = window.location.hash === "#child" ? Child : App;
+// ...render <Root /> inside the providers...
+```
+
+Because the choice happens before the first render, the correct screen is painted on the first frame — **no client-side router, and no flash** of the wrong UI followed by a redirect. To add another window type, add a value to the `AppEntry` union and a branch in `main.tsx`.
+
+**2. Modal child windows.**
+
+`createWindow` accepts an optional `parent`. When it's present, the window is created with `parent` and `modal: true`, so it behaves as a true child: it stays above its parent and **blocks interaction with the parent** until it closes. The handler that opens the child resolves the parent from the calling window, so the relationship is wired automatically:
+
+```ts
+// src/main/handler.ts — the "open-child-window" handler
+const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
+createWindow({ entry: "child", parent });
+```
+
+Opening a *non-modal* secondary window is simply `createWindow({ entry })` with no `parent`.
+
+## Persistence (electron-store)
+
+Data that must survive restarts is stored with [electron-store](https://github.com/sindresorhus/electron-store), which lives in the **main process** — the single source of truth (see [Cross-Window Reactive State](#cross-window-reactive-state) for why that matters once more than one window is open). The renderer never touches the store directly; it goes through the same typed, validated IPC layer as everything else.
+
+**Typed schema, lazy singleton.** The store's shape is declared once in `src/shared/types.ts`, and the instance is created lazily so it is only constructed after the app is ready:
+
+```ts
+// src/main/utils/store.ts
+import Store from "electron-store";
+import { StoreSchema } from "../../shared/types";
+
+let store: Store<StoreSchema> | null = null;
+
+export function getStore(): Store<StoreSchema> {
+  if (!store) {
+    store = new Store<StoreSchema>({ defaults: { firstName: "" } });
+  }
+  return store;
+}
+```
+
+Reads and writes happen inside IPC handlers — `getStore().set("firstName", value)` / `getStore().get("firstName", "")` — so persistence inherits the sender + schema validation that every channel gets.
+
+> **Gotcha — always pass a per-call default to `.get()`.** The `defaults` option is only applied when the store is *constructed* (it seeds the file once). `store.get("key")` reads the live file on each call and falls back only to its **second argument**, not to `defaults`. So if the config file is missing or deleted while the app is running, `get("firstName")` returns `undefined` rather than `""`. Pass the default explicitly — `get("firstName", "")` — and the value is always well-typed.
+
+**ESM-only — must be bundled into the main process.** electron-store v11 is ESM-only, but the main process is emitted as CommonJS, and electron-vite externalizes `dependencies` by default (leaving a runtime `require()` that would fail on an ESM-only package). It is therefore **excluded from externalization so it gets bundled in** — the same mechanism the preload uses for its dependencies:
+
+```ts
+// electron.vite.config.ts
+main: {
+  build: {
+    externalizeDeps: {
+      exclude: ['electron-store']
+    }
+  }
+}
+```
+
+Add any other ESM-only main-process dependency to this `exclude` list the same way. The store file lives alongside the logs in the per-user data directory — on Windows, `%APPDATA%\windows-electron-starter-kit\config.json`.
+
+## Cross-Window Reactive State
+
+Once a second window is open, a subtle question appears: if one window changes persisted state, how do the others find out? **Client-side state libraries (Zustand, Redux, Jotai, …) do not solve this** — each Electron window is its own renderer process with its own JavaScript heap, so a store updated in one window is invisible to another. The authoritative shared state lives in the **main process**; windows stay in sync by being *notified* when it changes.
+
+The kit does this with **main → renderer broadcast events**, declared in the same `protocol.ts` contract as the request/response channels:
+
+```ts
+// src/shared/protocol.ts
+export interface IPCEvents {
+  "first-name-changed": string;
+}
+```
+
+A typed `broadcast()` helper sends an event to **every** open window, and handlers fire it right after they mutate state:
+
+```ts
+// src/main/utils/events.ts
+export function broadcast<K extends IPCEventChannel>(channel: K, data: IPCEvents[K]): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(channel, data);
+  }
+}
+
+// src/main/handler.ts — inside "set-first-name", after persisting:
+getStore().set("firstName", params.firstName);
+broadcast("first-name-changed", params.firstName);
+```
+
+On the renderer side, `window.api.on(channel, cb)` subscribes and **returns an unsubscribe function** — designed to drop straight into a `useEffect` cleanup. The kit wraps "read the current value, then keep it live" in a small hook:
+
+```ts
+// src/renderer/src/hooks/useFirstName.ts
+export function useFirstName(): string {
+  const [firstName, setFirstName] = useState("");
+  useEffect(() => {
+    let active = true;
+    window.api.invoke("get-first-name").then((resp) => {
+      if (active && resp.success) setFirstName(resp.data);
+    });
+    const unsubscribe = window.api.on("first-name-changed", (_event, name) => setFirstName(name));
+    return () => { active = false; unsubscribe(); };
+  }, []);
+  return firstName;
+}
+```
+
+Any component calls `const firstName = useFirstName()` and gets a value that updates live — including when a **different** window changed it (e.g. the modal child window saves a new name, and the main window's greeting updates the moment the child closes).
+
+```mermaid
+flowchart TD
+    Child["Child window<br/>invoke('set-first-name', …)"] --> H["Main: set-first-name handler"]
+    H --> S["electron-store<br/>(source of truth)"]
+    H --> BC["broadcast('first-name-changed')"]
+    BC --> W1["Main window<br/>useFirstName() re-renders"]
+    BC --> W2["…every other open window"]
+```
+
+**Adding your own event:** declare it in `IPCEvents` (`protocol.ts`), call `broadcast("your-event", payload)` from the main process, and subscribe with `window.api.on("your-event", cb)` in the renderer — the channel name and payload type are checked end to end, exactly like invoke channels.
+
+> Reach for broadcast events specifically when state must stay consistent **across** windows, or is persisted in the main process. For state shared only **within** a single window, ordinary React state (or a client store) is the simpler choice.
 
 ## Security
 

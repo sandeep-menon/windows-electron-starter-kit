@@ -18,8 +18,8 @@ export function useFirstName(): string {
         return () => {
             active = false;
             unsubscribe();
-        }
-    },[]);
+        };
+    }, []);
 
     return firstName;
 }

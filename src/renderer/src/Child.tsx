@@ -23,7 +23,9 @@ export default function Child() {
                 toast.error(resp.error.message);
             }
         })();
-        return () => { active = false; };
+        return () => {
+            active = false;
+        };
     }, []);
 
     const handleSave = async (): Promise<void> => {
@@ -39,7 +41,7 @@ export default function Child() {
         } finally {
             setSaving(false);
         }
-    }
+    };
 
     return (
         <>
@@ -48,18 +50,32 @@ export default function Child() {
                 <ThemeToggle />
             </div>
             <main className="relative z-1 flex h-screen flex-col items-center justify-center gap-4">
-                <h1 className="font-serif text-3xl font-light text-foreground">What's your first name?</h1>
+                <h1 className="font-serif text-3xl font-light text-foreground">
+                    What's your first name?
+                </h1>
                 <div className="flex items-end gap-2">
                     <div className="flex flex-col gap-1">
-                        <label htmlFor="first-name" className="text-xs text-muted-foreground">First name</label>
-                        <input type="text" id="first-name" value={firstName} onChange={(e) => setFirstName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }} disabled={saving} className="w-48 rounded border bg-background px-2 py-1 text-foreground" />
+                        <label htmlFor="first-name" className="text-xs text-muted-foreground">
+                            First name
+                        </label>
+                        <input
+                            type="text"
+                            id="first-name"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSave();
+                            }}
+                            disabled={saving}
+                            className="w-48 rounded border bg-background px-2 py-1 text-foreground"
+                        />
                     </div>
                     <Button onClick={handleSave} disabled={!canSave}>
-                        { saving && <Loader2Icon className="size-4 animate-spin" />}
+                        {saving && <Loader2Icon className="size-4 animate-spin" />}
                         Save
                     </Button>
                 </div>
             </main>
         </>
-    )
+    );
 }

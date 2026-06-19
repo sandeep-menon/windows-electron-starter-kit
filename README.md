@@ -4,17 +4,17 @@ An enterprise-grade, production-ready Electron starter kit for Windows desktop a
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/) |
-| UI | [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/) |
-| Styling | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
-| Notifications | [Sonner](https://sonner.emilkowal.ski/) |
-| Validation | [Zod](https://zod.dev/) |
-| Persistence | [electron-store](https://github.com/sindresorhus/electron-store) |
-| Logging | [electron-log](https://github.com/megahertz/electron-log) |
-| Auto-update | [electron-updater](https://www.electron.build/auto-update) (dependency available; not yet wired) |
-| Packaging | [electron-builder](https://www.electron.build/) |
+| Layer         | Technology                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| Framework     | [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/)            |
+| UI            | [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)                   |
+| Styling       | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)                |
+| Notifications | [Sonner](https://sonner.emilkowal.ski/)                                                          |
+| Validation    | [Zod](https://zod.dev/)                                                                          |
+| Persistence   | [electron-store](https://github.com/sindresorhus/electron-store)                                 |
+| Logging       | [electron-log](https://github.com/megahertz/electron-log)                                        |
+| Auto-update   | [electron-updater](https://www.electron.build/auto-update) (dependency available; not yet wired) |
+| Packaging     | [electron-builder](https://www.electron.build/)                                                  |
 
 ## Getting Started
 
@@ -35,18 +35,18 @@ npm run build:win
 
 ## Available Scripts
 
-| Script | Description |
-|---|---|
-| `npm run dev` | Start in development mode. Renderer has full HMR (state-preserving). |
-| `npm run dev:watch` | Same as `dev`, but also watches the **main** and **preload** processes and automatically rebuilds + restarts the app when they change. |
-| `npm run start` | Preview a production build locally (`electron-vite preview`). |
-| `npm run build` | Type-check, then build all processes for distribution. |
-| `npm run build:win` | Build and package a Windows installer. |
-| `npm run build:mac` / `build:linux` | Build and package for macOS / Linux. |
-| `npm run build:unpack` | Build an unpacked directory (useful for inspection/debugging). |
-| `npm run typecheck` | Type-check both the Node (main/preload) and web (renderer) projects. |
-| `npm run lint` | Run ESLint across the project. |
-| `npm run format` | Format the codebase with Prettier. |
+| Script                              | Description                                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run dev`                       | Start in development mode. Renderer has full HMR (state-preserving).                                                                   |
+| `npm run dev:watch`                 | Same as `dev`, but also watches the **main** and **preload** processes and automatically rebuilds + restarts the app when they change. |
+| `npm run start`                     | Preview a production build locally (`electron-vite preview`).                                                                          |
+| `npm run build`                     | Type-check, then build all processes for distribution.                                                                                 |
+| `npm run build:win`                 | Build and package a Windows installer.                                                                                                 |
+| `npm run build:mac` / `build:linux` | Build and package for macOS / Linux.                                                                                                   |
+| `npm run build:unpack`              | Build an unpacked directory (useful for inspection/debugging).                                                                         |
+| `npm run typecheck`                 | Type-check both the Node (main/preload) and web (renderer) projects.                                                                   |
+| `npm run lint`                      | Run ESLint across the project.                                                                                                         |
+| `npm run format`                    | Format the codebase with Prettier.                                                                                                     |
 
 > **Note on hot reload:** `npm run dev` only hot-reloads the **renderer** (React UI). The main and preload processes are Node code and cannot be hot-swapped in place — use `npm run dev:watch` to have electron-vite rebuild and **restart** the app automatically when you edit them.
 
@@ -108,27 +108,27 @@ flowchart LR
 
 ### Typed IPC contract
 
-Every IPC channel is declared **once**, in `src/shared/protocol.ts`, as a [Zod](https://zod.dev/) schema. That single declaration is the source of truth for *both* the compile-time types and the runtime validation:
+Every IPC channel is declared **once**, in `src/shared/protocol.ts`, as a [Zod](https://zod.dev/) schema. That single declaration is the source of truth for _both_ the compile-time types and the runtime validation:
 
 ```ts
 // src/shared/protocol.ts — the single source of truth
 export const IPCParamSchemas = {
-  "get-random-todo": z.void(),
-  "get-todo-by-id":  z.object({ id: z.number().int().positive() }),
+    "get-random-todo": z.void(),
+    "get-todo-by-id": z.object({ id: z.number().int().positive() })
 } as const;
 
 // Each channel also declares the shape of the data it resolves with on success:
 export interface IPCResponseData extends Record<IPCChannel, unknown> {
-  "get-random-todo": Todo;
-  "get-todo-by-id":  Todo;
+    "get-random-todo": Todo;
+    "get-todo-by-id": Todo;
 }
 
 // The typed contract is *inferred* from the schemas — no hand-written interface to keep in sync:
 export type IPCInvocations = {
-  [K in keyof typeof IPCParamSchemas]: {
-    params:  z.infer<(typeof IPCParamSchemas)[K]>;
-    returns: MainProcessResponse<IPCResponseData[K]>;
-  };
+    [K in keyof typeof IPCParamSchemas]: {
+        params: z.infer<(typeof IPCParamSchemas)[K]>;
+        returns: MainProcessResponse<IPCResponseData[K]>;
+    };
 };
 ```
 
@@ -156,13 +156,13 @@ Every handler resolves with a `MainProcessResponse<T>` — a **discriminated uni
 ```ts
 // src/shared/types.ts
 export type MainProcessResponse<T = unknown> =
-  | { success: true;  data: T }
-  | { success: false; error: MainProcessError };
+    | { success: true; data: T }
+    | { success: false; error: MainProcessError };
 
 export interface MainProcessError {
-  code: MainProcessErrorCode;   // "NOT_FOUND" | "INVALID_PARAMS" | "NETWORK" | … (open-ended)
-  message: string;              // human-readable
-  details?: unknown;            // e.g. the Zod issue list for INVALID_PARAMS
+    code: MainProcessErrorCode; // "NOT_FOUND" | "INVALID_PARAMS" | "NETWORK" | … (open-ended)
+    message: string; // human-readable
+    details?: unknown; // e.g. the Zod issue list for INVALID_PARAMS
 }
 ```
 
@@ -171,10 +171,12 @@ Because `success` is the discriminant, checking it **narrows the type** in the r
 ```ts
 const resp = await window.api.invoke("get-todo-by-id", { id });
 if (!resp.success) {
-  if (resp.error.code === "NOT_FOUND") { /* show a friendly empty state */ }
-  toast.error(resp.error.message);
+    if (resp.error.code === "NOT_FOUND") {
+        /* show a friendly empty state */
+    }
+    toast.error(resp.error.message);
 } else {
-  toast.info(resp.data.todo);   // resp.data is typed `Todo` here
+    toast.info(resp.data.todo); // resp.data is typed `Todo` here
 }
 ```
 
@@ -192,16 +194,20 @@ There is a single renderer bundle and a single `index.html`. Which root componen
 
 ```ts
 // src/main/utils/application.ts
-export function createWindow(
-  { entry, parent }: { entry: AppEntry; parent?: BrowserWindow }
-): BrowserWindow {
-  // ...shared BrowserWindow options...
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    window.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#${entry}`);
-  } else {
-    window.loadFile(join(__dirname, "../renderer/index.html"), { hash: entry });
-  }
-  return window;
+export function createWindow({
+    entry,
+    parent
+}: {
+    entry: AppEntry;
+    parent?: BrowserWindow;
+}): BrowserWindow {
+    // ...shared BrowserWindow options...
+    if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+        window.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#${entry}`);
+    } else {
+        window.loadFile(join(__dirname, "../renderer/index.html"), { hash: entry });
+    }
+    return window;
 }
 ```
 
@@ -225,7 +231,7 @@ const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined;
 createWindow({ entry: "child", parent });
 ```
 
-Opening a *non-modal* secondary window is simply `createWindow({ entry })` with no `parent`.
+Opening a _non-modal_ secondary window is simply `createWindow({ entry })` with no `parent`.
 
 ## Persistence (electron-store)
 
@@ -241,27 +247,27 @@ import { StoreSchema } from "../../shared/types";
 let store: Store<StoreSchema> | null = null;
 
 export function getStore(): Store<StoreSchema> {
-  if (!store) {
-    store = new Store<StoreSchema>({ defaults: { firstName: "" } });
-  }
-  return store;
+    if (!store) {
+        store = new Store<StoreSchema>({ defaults: { firstName: "" } });
+    }
+    return store;
 }
 ```
 
 Reads and writes happen inside IPC handlers — `getStore().set("firstName", value)` / `getStore().get("firstName", "")` — so persistence inherits the sender + schema validation that every channel gets.
 
-> **Gotcha — always pass a per-call default to `.get()`.** The `defaults` option is only applied when the store is *constructed* (it seeds the file once). `store.get("key")` reads the live file on each call and falls back only to its **second argument**, not to `defaults`. So if the config file is missing or deleted while the app is running, `get("firstName")` returns `undefined` rather than `""`. Pass the default explicitly — `get("firstName", "")` — and the value is always well-typed.
+> **Gotcha — always pass a per-call default to `.get()`.** The `defaults` option is only applied when the store is _constructed_ (it seeds the file once). `store.get("key")` reads the live file on each call and falls back only to its **second argument**, not to `defaults`. So if the config file is missing or deleted while the app is running, `get("firstName")` returns `undefined` rather than `""`. Pass the default explicitly — `get("firstName", "")` — and the value is always well-typed.
 
 **ESM-only — must be bundled into the main process.** electron-store v11 is ESM-only, but the main process is emitted as CommonJS, and electron-vite externalizes `dependencies` by default (leaving a runtime `require()` that would fail on an ESM-only package). It is therefore **excluded from externalization so it gets bundled in** — the same mechanism the preload uses for its dependencies:
 
 ```ts
 // electron.vite.config.ts
 main: {
-  build: {
-    externalizeDeps: {
-      exclude: ['electron-store']
+    build: {
+        externalizeDeps: {
+            exclude: ["electron-store"];
+        }
     }
-  }
 }
 ```
 
@@ -269,14 +275,14 @@ Add any other ESM-only main-process dependency to this `exclude` list the same w
 
 ## Cross-Window Reactive State
 
-Once a second window is open, a subtle question appears: if one window changes persisted state, how do the others find out? **Client-side state libraries (Zustand, Redux, Jotai, …) do not solve this** — each Electron window is its own renderer process with its own JavaScript heap, so a store updated in one window is invisible to another. The authoritative shared state lives in the **main process**; windows stay in sync by being *notified* when it changes.
+Once a second window is open, a subtle question appears: if one window changes persisted state, how do the others find out? **Client-side state libraries (Zustand, Redux, Jotai, …) do not solve this** — each Electron window is its own renderer process with its own JavaScript heap, so a store updated in one window is invisible to another. The authoritative shared state lives in the **main process**; windows stay in sync by being _notified_ when it changes.
 
 The kit does this with **main → renderer broadcast events**, declared in the same `protocol.ts` contract as the request/response channels:
 
 ```ts
 // src/shared/protocol.ts
 export interface IPCEvents {
-  "first-name-changed": string;
+    "first-name-changed": string;
 }
 ```
 
@@ -285,9 +291,9 @@ A typed `broadcast()` helper sends an event to **every** open window, and handle
 ```ts
 // src/main/utils/events.ts
 export function broadcast<K extends IPCEventChannel>(channel: K, data: IPCEvents[K]): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    window.webContents.send(channel, data);
-  }
+    for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(channel, data);
+    }
 }
 
 // src/main/handler.ts — inside "set-first-name", after persisting:
@@ -300,16 +306,21 @@ On the renderer side, `window.api.on(channel, cb)` subscribes and **returns an u
 ```ts
 // src/renderer/src/hooks/useFirstName.ts
 export function useFirstName(): string {
-  const [firstName, setFirstName] = useState("");
-  useEffect(() => {
-    let active = true;
-    window.api.invoke("get-first-name").then((resp) => {
-      if (active && resp.success) setFirstName(resp.data);
-    });
-    const unsubscribe = window.api.on("first-name-changed", (_event, name) => setFirstName(name));
-    return () => { active = false; unsubscribe(); };
-  }, []);
-  return firstName;
+    const [firstName, setFirstName] = useState("");
+    useEffect(() => {
+        let active = true;
+        window.api.invoke("get-first-name").then((resp) => {
+            if (active && resp.success) setFirstName(resp.data);
+        });
+        const unsubscribe = window.api.on("first-name-changed", (_event, name) =>
+            setFirstName(name)
+        );
+        return () => {
+            active = false;
+            unsubscribe();
+        };
+    }, []);
+    return firstName;
 }
 ```
 
@@ -356,17 +367,17 @@ Logging is built on [electron-log](https://github.com/megahertz/electron-log) v5
 
 ### Behavior at a glance
 
-| Environment | File logging | Verbosity (file + console) |
-|---|---|---|
-| Development | Always on | `silly` (everything) |
-| Production (default) | Always on | `info` |
-| Production with `--enable-logging` | Always on | `silly` (everything) |
+| Environment                        | File logging | Verbosity (file + console) |
+| ---------------------------------- | ------------ | -------------------------- |
+| Development                        | Always on    | `silly` (everything)       |
+| Production (default)               | Always on    | `info`                     |
+| Production with `--enable-logging` | Always on    | `silly` (everything)       |
 
 Verbosity is decided by a single rule:
 
 ```ts
 function isVerboseLogging() {
-  return is.dev || process.argv.includes("--enable-logging")
+    return is.dev || process.argv.includes("--enable-logging");
 }
 // → level = isVerboseLogging() ? "silly" : "info"
 ```
@@ -380,7 +391,7 @@ This means logging is **always on** — file logging is never silently disabled.
 ### Log files, location, and rotation
 
 - Logs are written to the OS-standard per-user data directory:
-  - **Windows:** `%APPDATA%\windows-electron-starter-kit\logs\`
+    - **Windows:** `%APPDATA%\windows-electron-starter-kit\logs\`
 - Each launch creates a fresh, timestamped file: `app_<YYYYMMDD>_<epoch>.log`.
 - **Rotation:** on every launch the kit keeps only the **5 most recent** log files and deletes older ones — in both development and production — so disk usage stays bounded without manual cleanup.
 
@@ -415,7 +426,7 @@ Critically, **redaction only affects what is logged — never what is sent.** Th
 
 ```ts
 // Example — what reaches the log:
-invoke("save-credentials", { user: "alice", access_token: "sk-live-123" })
+invoke("save-credentials", { user: "alice", access_token: "sk-live-123" });
 // logged as: { user: "alice", access_token: "[REDACTED]" }
 // the handler still receives the real token
 ```
@@ -432,42 +443,44 @@ Because the schema is the single source of truth, adding a channel is a compiler
 
 1. **Declare the schema** in `IPCParamSchemas` (`src/shared/protocol.ts`). Use `z.void()` for a channel that takes no params, or a `z.object({ ... })` for one that does:
 
-   ```ts
-   // src/shared/protocol.ts
-   export const IPCParamSchemas = {
-     "get-random-todo": z.void(),
-     "get-todo-by-id":  z.object({ id: z.number().int().positive() }),
-     "save-note":       z.object({ title: z.string().min(1), body: z.string() }), // ← new
-   } as const;
-   ```
+    ```ts
+    // src/shared/protocol.ts
+    export const IPCParamSchemas = {
+        "get-random-todo": z.void(),
+        "get-todo-by-id": z.object({ id: z.number().int().positive() }),
+        "save-note": z.object({ title: z.string().min(1), body: z.string() }) // ← new
+    } as const;
+    ```
 
 2. **Declare the response data type** in `IPCResponseData` (`src/shared/protocol.ts`). The `extends Record<IPCChannel, unknown>` constraint makes this a **compile error to skip** — every channel must say what its `data` looks like on success:
 
-   ```ts
-   // src/shared/protocol.ts
-   export interface IPCResponseData extends Record<IPCChannel, unknown> {
-     "get-random-todo": Todo;
-     "get-todo-by-id":  Todo;
-     "save-note":       Note; // ← new
-   }
-   ```
+    ```ts
+    // src/shared/protocol.ts
+    export interface IPCResponseData extends Record<IPCChannel, unknown> {
+        "get-random-todo": Todo;
+        "get-todo-by-id": Todo;
+        "save-note": Note; // ← new
+    }
+    ```
 
 3. **Implement the handler** in the `handlers` map in `src/main/handler.ts`. The mapped type forces this — the build fails until you do, and your handler receives params already validated against the schema and must return `MainProcessResponse<Note>`:
 
-   ```ts
-   "save-note": async (_event, params) => saveNote(params), // params is typed AND validated
-   ```
+    ```ts
+    "save-note": async (_event, params) => saveNote(params), // params is typed AND validated
+    ```
 
 4. **Call it** from the renderer — fully typed, with autocomplete on the channel name, params, and `resp.data`:
 
-   ```ts
-   const resp = await window.api.invoke("save-note", { title: "Hi", body: "..." });
-   if (resp.success) { /* resp.data is typed `Note` */ }
-   ```
+    ```ts
+    const resp = await window.api.invoke("save-note", { title: "Hi", body: "..." });
+    if (resp.success) {
+        /* resp.data is typed `Note` */
+    }
+    ```
 
 No preload changes are ever required — the generic bridge adapts automatically, and the sender + schema checks are applied centrally for the new channel.
 
-> **Heads up if you change how the renderer is loaded.** The trusted-sender check in `isTrustedSender()` (`src/main/handler.ts`) assumes the renderer is served from the electron-vite **dev-server origin** in development and from a **`file:` URL** in a packaged build. If you load the renderer some other way — a **custom scheme** (e.g. `app://`) or a **remote URL** — that check will reject *every* IPC call with `"Unauthorized sender"`. Update the allowed origin(s) in `isTrustedSender()` to match your setup when you do this.
+> **Heads up if you change how the renderer is loaded.** The trusted-sender check in `isTrustedSender()` (`src/main/handler.ts`) assumes the renderer is served from the electron-vite **dev-server origin** in development and from a **`file:` URL** in a packaged build. If you load the renderer some other way — a **custom scheme** (e.g. `app://`) or a **remote URL** — that check will reject _every_ IPC call with `"Unauthorized sender"`. Update the allowed origin(s) in `isTrustedSender()` to match your setup when you do this.
 
 ### Adding a dependency to the preload
 
@@ -478,13 +491,13 @@ Because of this, any new package you `import` from `src/preload/` must be **bund
 ```ts
 // electron.vite.config.ts
 preload: {
-  build: {
-    externalizeDeps: {
-      // Every dependency imported from src/preload/ goes here so it is bundled
-      // into the self-contained preload and stays available under the sandbox.
-      exclude: ['@electron-toolkit/preload', 'electron-log', 'your-new-package']
+    build: {
+        externalizeDeps: {
+            // Every dependency imported from src/preload/ goes here so it is bundled
+            // into the self-contained preload and stays available under the sandbox.
+            exclude: ["@electron-toolkit/preload", "electron-log", "your-new-package"];
+        }
     }
-  }
 }
 ```
 
@@ -499,9 +512,17 @@ Logged IPC payloads are scrubbed by the `redact()` function in `src/preload/inde
 ```ts
 // src/preload/index.ts
 const SENSITIVE_KEYS = [
-  'password', 'token', 'secret', 'authorization', 'apikey', 'accesstoken',
-  'personalaccesstoken', 'pat', 'refreshtoken', 'cookie',
-  'sessionid' // ← your new term: also catches session_id, sessionId, X-Session-ID, …
+    "password",
+    "token",
+    "secret",
+    "authorization",
+    "apikey",
+    "accesstoken",
+    "personalaccesstoken",
+    "pat",
+    "refreshtoken",
+    "cookie",
+    "sessionid" // ← your new term: also catches session_id, sessionId, X-Session-ID, …
 ];
 ```
 

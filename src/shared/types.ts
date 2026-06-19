@@ -2,7 +2,8 @@
  * Well known error codes returned by main-process handlers.
  * Branch on 'error.code' in the renderer to react per failure type.
  */
-export type MainProcessErrorCode = "INVALID_PARAMS"
+export type MainProcessErrorCode =
+    | "INVALID_PARAMS"
     | "UNAUTHORIZED_SENDER"
     | "NOT_FOUND"
     | "NETWORK"
@@ -20,7 +21,7 @@ export interface MainProcessError {
  * Narrow on 'success': when 'true', 'data' is present (typed 'T')
  * when 'false', 'error' is present.
  */
-export type MainProcessResponse<T = unknown> = 
+export type MainProcessResponse<T = unknown> =
     | { success: true; data: T }
     | { success: false; error: MainProcessError };
 

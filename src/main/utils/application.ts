@@ -5,7 +5,7 @@ import log from "electron-log/main";
 import os from "os";
 import { is } from "@electron-toolkit/utils";
 import { BrowserWindow } from "electron/main";
-import icon from "../../../resources/icon.png?asset"
+import icon from "../../../resources/icon.png?asset";
 import { shell } from "electron/common";
 export type AppEntry = "main" | "child";
 
@@ -70,13 +70,14 @@ function getEnvironmentInfo() {
             ELECTRON_RENDERER_URL: process.env.ELECTRON_RENDERER_URL,
             REMOTE_DEBUGGING_PORT: process.env.REMOTE_DEBUGGING_PORT
         }
-    }
+    };
 
     return info;
 }
 
 function cleanupOldLogs(logDir: string) {
-    const files = fs.readdirSync(logDir)
+    const files = fs
+        .readdirSync(logDir)
         .filter((file) => file.startsWith("app_") && file.endsWith(".log"))
         .map((file) => ({
             name: file,
@@ -107,7 +108,13 @@ export function initializeLogging() {
     log.info(envInfo);
 }
 
-export function createWindow({ entry, parent }: { entry: AppEntry; parent?: BrowserWindow }): BrowserWindow {
+export function createWindow({
+    entry,
+    parent
+}: {
+    entry: AppEntry;
+    parent?: BrowserWindow;
+}): BrowserWindow {
     const window = new BrowserWindow({
         width: 900,
         height: 670,
@@ -117,7 +124,7 @@ export function createWindow({ entry, parent }: { entry: AppEntry; parent?: Brow
         autoHideMenuBar: true,
         parent,
         modal: Boolean(parent),
-        ...(process.platform === "win32" ? { icon }: {}),
+        ...(process.platform === "win32" ? { icon } : {}),
         webPreferences: {
             preload: join(__dirname, "../preload/index.js"),
             sandbox: true,

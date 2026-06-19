@@ -5,7 +5,7 @@ const BANDS = [
     "bg-white dark:bg-black",
     "bg-green-50 dark:bg-green-800",
     "bg-green-100 dark:bg-green-700",
-    "bg-green-200 dark:bg-green-600",
+    "bg-green-200 dark:bg-green-600"
 ] as const;
 
 export function Background(): React.ReactNode {
@@ -15,5 +15,5 @@ export function Background(): React.ReactNode {
                 <div key={i} className={`h-full ${i === 3 ? "flex-[4]" : "flex-1"} ${color}`} />
             ))}
         </div>
-    )
+    );
 }

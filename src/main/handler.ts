@@ -29,7 +29,7 @@ async function getRandomTodo(): Promise<MainProcessResponse<Todo>> {
         return {
             success: true,
             data: result
-        }
+        };
     } catch (error) {
         log.error(`Failed at getRandomTodo(): ${error}`);
         return {
@@ -75,7 +75,7 @@ const handlers: {
     [K in IPCChannel]: (
         event: Electron.IpcMainInvokeEvent,
         params: IPCInvocations[K]["params"]
-    ) => Promise<IPCInvocations[K]["returns"]> | IPCInvocations[K]["returns"]
+    ) => Promise<IPCInvocations[K]["returns"]> | IPCInvocations[K]["returns"];
 } = {
     "get-random-todo": async (_event, _params) => getRandomTodo(),
     "get-todo-by-id": async (_event, params) => getTodoById(params.id),
@@ -125,7 +125,7 @@ const handlers: {
             };
         }
     }
-}
+};
 
 /**
  * Verify an IPC message originated from our own renderer,
@@ -151,7 +151,9 @@ export const registerHandlers = () => {
         ipcMain.handle(channel, async (event, rawParams): Promise<MainProcessResponse> => {
             // Sender validation - reject anything not from our own renderer.
             if (!isTrustedSender(event)) {
-                log.warn(`[ipc] Rejected '${channel}' from untrusted sender ${event.senderFrame?.url}`);
+                log.warn(
+                    `[ipc] Rejected '${channel}' from untrusted sender ${event.senderFrame?.url}`
+                );
                 return {
                     success: false,
                     error: { code: "UNAUTHORIZED_SENDER", message: "Unauthorized sender" }
@@ -186,5 +188,5 @@ export const registerHandlers = () => {
         for (const channel of Object.keys(handlers)) {
             ipcMain.removeHandler(channel);
         }
-    }
-}
+    };
+};

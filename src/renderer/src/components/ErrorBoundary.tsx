@@ -25,13 +25,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
     render(): ReactNode {
         if (this.state.error) {
-            return (<div className="relative z-10 h-screen flex flex-col items-center justify-center gap-3 p-6 text-center">
-                <h1 className="text-xl font-semibold text-foreground">Something went wrong</h1>
-                <p className="max-w-md text-sm break-words text-muted-foreground">
-                    {this.state.error.message}
-                </p>
-                <Button onClick={() => this.setState({ error: null })}>Try again</Button>
-            </div>)
+            return (
+                <div className="relative z-10 h-screen flex flex-col items-center justify-center gap-3 p-6 text-center">
+                    <h1 className="text-xl font-semibold text-foreground">Something went wrong</h1>
+                    <p className="max-w-md text-sm break-words text-muted-foreground">
+                        {this.state.error.message}
+                    </p>
+                    <Button onClick={() => this.setState({ error: null })}>Try again</Button>
+                </div>
+            );
         }
         return this.props.children;
     }

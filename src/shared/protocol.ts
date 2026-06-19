@@ -15,7 +15,7 @@ export const IPCParamSchemas = {
     "get-random-todo": z.void(),
     "get-todo-by-id": z.object({ id: z.number().int().positive() }),
     "open-child-window": z.void(),
-    "set-first-name": z.object({ firstName: z.string().trim().min(1) }),
+    "set-first-name": z.object({ firstName: z.string().trim().min(1).max(100) }),
     "get-first-name": z.void(),
 } as const;
 

@@ -24,7 +24,7 @@ export type IPCChannel = keyof typeof IPCParamSchemas;
 /**
  * Per channel response data - the 'T' in 'MainProcessResponse<T>' for each channel
  *
- * extends 'Record<IPCChannel, unknown>' forces this map to cover every cahnnel:
+ * extends 'Record<IPCChannel, unknown>' forces this map to cover every channel:
  * add a channel to 'IPCParamSchemas' and the compiler makes you declare its
  * response-data type here too. Use the data shape your handler resolves with on success.
  */

@@ -49,7 +49,7 @@ export default function Child() {
             <div className="fixed top-4 right-4 z-10">
                 <ThemeToggle />
             </div>
-            <main className="relative z-1 flex h-screen flex-col items-center justify-center gap-4">
+            <main className="relative z-0 flex h-screen flex-col items-center justify-center gap-4">
                 <h1 className="font-serif text-3xl font-light text-foreground">
                     What's your first name?
                 </h1>

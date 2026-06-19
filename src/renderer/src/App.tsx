@@ -70,7 +70,7 @@ export default function App() {
                 <ThemeToggle />
             </div>
 
-            <main className="relative z-1 flex h-screen flex-col items-center justify-center gap-4">
+            <main className="relative z-0 flex h-screen flex-col items-center justify-center gap-4">
                 <h1 className="font-serif text-3xl font-light text-foreground">
                     Hello, {firstName || "stranger"}
                 </h1>
@@ -107,10 +107,10 @@ export default function App() {
                         Load todo by ID
                     </Button>
                 </div>
-                <Button variant={"secondary"} onClick={handleOpenChildWindow}>
+                <Button variant="secondary" onClick={handleOpenChildWindow}>
                     Open child window
                 </Button>
-                <Button variant={"destructive"} onClick={() => setBoom(true)}>
+                <Button variant="destructive" onClick={() => setBoom(true)}>
                     Throw an error
                 </Button>
             </main>

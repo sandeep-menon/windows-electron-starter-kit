@@ -26,7 +26,7 @@ declare global {
              */
             on<K extends IPCEventChannel>(
                 channel: K,
-                callback: (event: any, data: IPCEvents[K]) => void
+                callback: (event: Electron.IpcRendererEvent, data: IPCEvents[K]) => void
             ): () => void;
 
             /**

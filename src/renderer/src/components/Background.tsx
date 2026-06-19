@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 const BANDS = [
     "bg-blue-200 dark:bg-blue-600",
     "bg-blue-100 dark:bg-blue-700",
@@ -8,7 +9,7 @@ const BANDS = [
     "bg-green-200 dark:bg-green-600"
 ] as const;
 
-export function Background(): React.ReactNode {
+export function Background(): ReactNode {
     return (
         <div aria-hidden="true" className="fixed inset-0 -z-10 flex">
             {BANDS.map((color, i) => (

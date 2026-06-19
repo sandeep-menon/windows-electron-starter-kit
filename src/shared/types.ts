@@ -36,3 +36,5 @@ export interface Todo {
 export interface StoreSchema {
     firstName: string;
 }
+
+export type AppEntry = "main" | "child";

@@ -15,7 +15,7 @@ const SENSITIVE_KEYS = [
     "cookie"
 ];
 
-const redact = (value: any): any => {
+const redact = (value: unknown): unknown => {
     if (Array.isArray(value)) {
         return value.map(redact);
     }
@@ -35,8 +35,8 @@ const redact = (value: any): any => {
     return value;
 };
 
-const LoggingIPCWrapper = () => {
-    const invokeWithLogging = async (channel, ...args) => {
+const loggingIPC = {
+    async invoke(channel, ...args) {
         log.info(`[renderer → main] (request): '${channel}' → `, ...args.map(redact));
         try {
             const result = await ipcRenderer.invoke(channel, ...args);
@@ -46,9 +46,8 @@ const LoggingIPCWrapper = () => {
             log.error(`[main → renderer] (error): '${channel}' → `, error);
             throw error;
         }
-    };
-
-    const onWithLogging = (channel, callback) => {
+    },
+    on(channel, callback) {
         const wrapperCallback = (event, ...args) => {
             log.info(`[main → renderer] (event): '${channel}' → `, ...args.map(redact));
             callback(event, ...args);
@@ -58,12 +57,7 @@ const LoggingIPCWrapper = () => {
             log.info(`[preload] Removing listener: '${channel}'`);
             ipcRenderer.removeListener(channel, wrapperCallback);
         };
-    };
-
-    return {
-        invoke: invokeWithLogging,
-        on: onWithLogging
-    };
+    }
 };
 
 const rendererLog = {
@@ -72,18 +66,12 @@ const rendererLog = {
     info: (message: string, ...args: unknown[]) => log.info(message, ...args.map(redact))
 };
 
-const loggingIPC = LoggingIPCWrapper();
-
-// Custom APIs for renderer
 const api = {
     invoke: loggingIPC.invoke,
     on: loggingIPC.on,
     log: rendererLog
 };
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
 if (process.contextIsolated) {
     try {
         contextBridge.exposeInMainWorld("electron", electronAPI);

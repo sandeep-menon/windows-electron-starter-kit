@@ -1,13 +1,11 @@
-import { app } from "electron";
-import path, { join } from "path";
+import { app, BrowserWindow, shell } from "electron";
+import { join } from "path";
 import fs from "fs";
 import log from "electron-log/main";
 import os from "os";
 import { is } from "@electron-toolkit/utils";
-import { BrowserWindow } from "electron/main";
 import icon from "../../../resources/icon.png?asset";
-import { shell } from "electron/common";
-export type AppEntry = "main" | "child";
+import { AppEntry } from "../../shared/types";
 
 const MAX_LOG_FILES = 5;
 
@@ -15,7 +13,7 @@ function isVerboseLogging() {
     return is.dev || process.argv.includes("--enable-logging");
 }
 
-export function generateTimestamp() {
+function generateTimestamp() {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -23,12 +21,12 @@ export function generateTimestamp() {
     return `${year}${month}${day}_${date.getTime()}`;
 }
 
-export function generateLogFileName() {
+function generateLogFileName() {
     return `app_${generateTimestamp()}.log`;
 }
 
 function getEnvironmentInfo() {
-    const info = {
+    return {
         app: {
             name: app.getName(),
             version: app.getVersion(),
@@ -71,8 +69,6 @@ function getEnvironmentInfo() {
             REMOTE_DEBUGGING_PORT: process.env.REMOTE_DEBUGGING_PORT
         }
     };
-
-    return info;
 }
 
 function cleanupOldLogs(logDir: string) {
@@ -81,18 +77,19 @@ function cleanupOldLogs(logDir: string) {
         .filter((file) => file.startsWith("app_") && file.endsWith(".log"))
         .map((file) => ({
             name: file,
-            time: fs.statSync(path.join(logDir, file)).mtimeMs
+            time: fs.statSync(join(logDir, file)).mtimeMs
         }))
         .sort((a, b) => b.time - a.time);
+
     for (const file of files.slice(MAX_LOG_FILES)) {
-        fs.rmSync(path.join(logDir, file.name), { force: true });
+        fs.rmSync(join(logDir, file.name), { force: true });
     }
 }
 
 export function initializeLogging() {
     const logFileName = generateLogFileName();
-    const logDir = path.join(app.getPath("userData"), "logs");
-    const logFilePath = path.join(logDir, logFileName);
+    const logDir = join(app.getPath("userData"), "logs");
+    const logFilePath = join(logDir, logFileName);
     fs.mkdirSync(logDir, { recursive: true });
     fs.writeFileSync(logFilePath, "");
     cleanupOldLogs(logDir);
@@ -102,10 +99,9 @@ export function initializeLogging() {
     log.transports.console.level = level;
     log.initialize();
     log.errorHandler.startCatching();
-    log.info("Application launched with logging...");
-    const envInfo = getEnvironmentInfo();
+    log.info("Application launched...");
     log.info("Environment:");
-    log.info(envInfo);
+    log.info(getEnvironmentInfo());
 }
 
 export function createWindow({
@@ -114,7 +110,7 @@ export function createWindow({
 }: {
     entry: AppEntry;
     parent?: BrowserWindow;
-}): BrowserWindow {
+}) : BrowserWindow {
     const window = new BrowserWindow({
         width: 900,
         height: 670,
@@ -138,11 +134,11 @@ export function createWindow({
     });
 
     window.webContents.setWindowOpenHandler((details) => {
-        shell.openExternal(details.url);
+        shell.openExternal(details.url).catch((err) => log.error(`Failed to open external URL: ${err}`));
         return { action: "deny" };
     });
 
-    // 'entry' rides along as a URL hash (#main, #child) so the renderer can
+    // `entry` rides along as a URL hash (#main, #child) so the renderer can
     // pick its root component synchronously, before React mounts - no flash
     if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
         window.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}#${entry}`);

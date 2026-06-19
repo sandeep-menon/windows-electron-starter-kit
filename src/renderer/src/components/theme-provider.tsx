@@ -13,9 +13,11 @@ type ThemeProviderState = {
     setTheme: (theme: Theme) => void;
 };
 
+export const THEME_STORAGE_KEY = "windows-electron-starter-kit-theme";
+
 const initialState: ThemeProviderState = {
     theme: "system",
-    setTheme: () => null
+    setTheme: () => {}
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
@@ -23,7 +25,7 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 export function ThemeProvider({
     children,
     defaultTheme = "system",
-    storageKey = "windows-electron-starter-kit-theme",
+    storageKey = THEME_STORAGE_KEY,
     ...props
 }: ThemeProviderProps) {
     const [theme, setTheme] = useState<Theme>(

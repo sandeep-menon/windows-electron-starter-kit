@@ -11,7 +11,7 @@ app.whenReady().then(() => {
     // Set app user model id for windows
     electronApp.setAppUserModelId("com.smenon.windowselectronstarterkit");
 
-    initializeLogging();
+    // initializeLogging();
 
     // Default open or close DevTools by F12 in development
     // and ignore CommandOrControl + R in production.
@@ -23,6 +23,8 @@ app.whenReady().then(() => {
     const cleanup = registerHandlers();
 
     createWindow({ entry: "main" });
+
+    setImmediate(() => initializeLogging());
 
     app.on("activate", function () {
         // On macOS it's common to re-create a window in the app when the

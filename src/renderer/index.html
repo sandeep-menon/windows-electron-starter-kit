@@ -6,8 +6,21 @@
         <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
         <meta
             http-equiv="Content-Security-Policy"
-            content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+            content="default-src 'self'; script-src 'self' 'sha256-Kk+1UUc2mhmgseWFbkgv09mLf3jvZGHEH7y2QUtnwoQ='; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
         />
+        <script>
+            (function () {
+                var key = "windows-electron-starter-kit-theme";
+                var stored = localStorage.getItem(key);
+                var theme = 
+                    stored === "dark" || stored === "light"
+                        ? stored
+                        : window.matchMedia("(prefers-color-scheme: dark)").matches
+                        ? "dark"
+                        : "light";
+                document.documentElement.classList.add(theme);
+            })();
+        </script>
     </head>
 
     <body>

@@ -4,6 +4,7 @@
     "description": "A production-ready Electron starter with React, TypeScript, Tailwind CSS v4, shadcn/ui, electron-store, and electron-log - batteries included.",
     "main": "./out/main/index.js",
     "author": "Sandeep Menon",
+    "license": "MIT",
     "homepage": "https://github.com/sandeep-menon/windows-electron-starter-kit",
     "scripts": {
         "format": "prettier --write .",

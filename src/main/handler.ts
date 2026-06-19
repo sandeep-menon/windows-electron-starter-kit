@@ -7,6 +7,8 @@ import { createWindow } from "./utils/application";
 import { getStore } from "./utils/store";
 import { broadcast } from "./utils/events";
 
+const TRUSTED_PROTOCOLS = ["file:"];
+
 function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -140,7 +142,7 @@ function isTrustedSender(event: Electron.IpcMainInvokeEvent): boolean {
             const devUrl = process.env["ELECTRON_RENDERER_URL"];
             return !!devUrl && origin === new URL(devUrl).origin;
         }
-        return protocol === "file:";
+        return TRUSTED_PROTOCOLS.includes(protocol);
     } catch {
         return false;
     }

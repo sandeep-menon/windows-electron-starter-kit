@@ -7,9 +7,15 @@ import { createWindow } from "./utils/application";
 import { getStore } from "./utils/store";
 import { broadcast } from "./utils/events";
 
+function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function getRandomTodo(): Promise<MainProcessResponse<Todo>> {
     try {
-        const response = await fetch("https://dummyjson.com/todos/random");
+        const response = await fetchWithTimeout("https://dummyjson.com/todos/random");
         if (!response.ok) {
             return {
                 success: false,
@@ -38,7 +44,7 @@ async function getRandomTodo(): Promise<MainProcessResponse<Todo>> {
 
 async function getTodoById(id: number): Promise<MainProcessResponse<Todo>> {
     try {
-        const response = await fetch(`https://dummyjson.com/todos/${id}`);
+        const response = await fetchWithTimeout(`https://dummyjson.com/todos/${id}`);
         if (!response.ok) {
             return {
                 success: false,

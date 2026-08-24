@@ -181,6 +181,85 @@ Default sensitive terms: `password`, `token`, `secret`, `authorization`, `apikey
 
 To protect additional fields, add a lowercase separator-free term to `SENSITIVE_KEYS` in `src/preload/index.ts`.
 
+## Auto-Update
+
+The auto-update flow follows VSCode's three-step pattern: **Check → Download → Restart** — all user-initiated. `electron-updater` is a complete no-op when the app is not packaged; the dev experience is unchanged.
+
+### How it works
+
+1. User clicks **Check for Updates** → `check-for-updates` IPC channel → `autoUpdater.checkForUpdates()`.
+2. If an update is found, the renderer receives `update:available` and shows a **Download** button.
+3. User clicks **Download** → `download-update` IPC → `autoUpdater.downloadUpdate()`. Progress is streamed via `update:progress` events.
+4. When the download completes (`update:downloaded`), a **Restart to Update** button appears.
+5. User clicks it → `install-update` IPC → `autoUpdater.quitAndInstall(true, true)`.
+
+### Shipping an update
+
+Tag a commit and push — the release workflow does the rest:
+
+```bash
+# Bump version in package.json first, then:
+git tag v1.2.0
+git push && git push --tags
+```
+
+The workflow builds the installer and publishes it to GitHub Releases. Running instances of the app will find the new version on their next check.
+
+### `GH_TOKEN_RO` — the read-only token
+
+`GH_TOKEN_RO` is a read-only GitHub PAT baked into the app binary at build time via a Vite `define`. The packaged app uses it to authenticate when checking for updates.
+
+| Scenario | Token needed? |
+|---|---|
+| Public repo (e.g. this one) | No — leave `GH_TOKEN_RO` empty |
+| Private fork | Yes — create a PAT with `Contents: Read` and add it as a `GH_TOKEN_RO` secret |
+
+Never confuse `GH_TOKEN_RO` (baked into the binary, read-only) with `GH_TOKEN` (used by the release workflow to upload artifacts, never baked in).
+
+### Testing the end-to-end flow
+
+1. `npm run build:win` → install the output `.exe`.
+2. Bump `version` in `package.json`, commit, push, and tag.
+3. Wait for the release workflow to complete.
+4. In the running older version, click **Check for Updates**.
+
+## GitHub Actions
+
+### `ci.yml` — lint + typecheck
+
+Runs on every push to `main` and every pull request. Uses an `ubuntu-latest` runner (cheap). Runs `npm run lint` and `npm run typecheck`.
+
+### `release.yml` — Windows installer
+
+Triggers on `v*.*.*` tag pushes. Uses a `windows-latest` runner. Produces a one-click NSIS installer (`*-setup.exe`) and the update manifest (`latest.yml`) as GitHub Release assets.
+
+**Secrets required in repo settings (*Settings → Secrets and variables → Actions*):**
+
+| Secret | Permission | Required |
+|---|---|---|
+| `GH_TOKEN` | Contents: Read and write (to create releases) | Yes |
+| `GH_TOKEN_RO` | Contents: Read (baked into binary) | Only for private forks |
+
+### Using your dev machine as the runner
+
+Useful when you need a code-signing certificate (which lives on your machine), have a private fork, or want to avoid GitHub runner minutes.
+
+**Setup:**
+
+1. Go to *Repo → Settings → Actions → Runners → New self-hosted runner*.
+2. Follow the Windows installation steps shown in the UI.
+3. In `.github/workflows/release.yml`, change:
+   ```yaml
+   runs-on: windows-latest
+   ```
+   to:
+   ```yaml
+   runs-on: [self-hosted, Windows]
+   ```
+4. Set `GH_TOKEN` and `GH_TOKEN_RO` as machine-level environment variables (or in the runner's `.env` file) — the workflow reads them the same way as GitHub secrets.
+
+**Code signing (optional):** Set `WIN_CSP_KEY_PASSWORD`, `WIN_CSP_SHA1`, and related variables as environment variables on the runner machine. `electron-builder` picks them up automatically. Without signing, Windows SmartScreen will warn on first launch.
+
 ## Extending This Starter Kit
 
 ### Adding an IPC channel

@@ -467,6 +467,7 @@
                     <li><a href="#features">Features</a></li>
                     <li><a href="#stack">Stack</a></li>
                     <li><a href="#quickstart">Quick Start</a></li>
+                    <li><a href="#auto-update">Auto-Update</a></li>
                     <li>
                         <a
                             href="https://github.com/sandeep-menon/windows-electron-starter-kit"
@@ -611,6 +612,20 @@
                         <p class="feature-title">Built to extend</p>
                         <p class="feature-desc">
                             Add a channel: declare a schema, declare a response type, implement the handler. Typed, validated, and logged — automatically. The compiler guides you.
+                        </p>
+                    </div>
+                    <!-- 7 -->
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                <polyline points="7 10 12 15 17 10" />
+                                <line x1="12" y1="15" x2="12" y2="3" />
+                            </svg>
+                        </div>
+                        <p class="feature-title">Auto-Update (VSCode-style)</p>
+                        <p class="feature-desc">
+                            Check → Download → Restart, all user-initiated. <code style="font-size:12px;color:#aaa;background:var(--surface-2);padding:1px 5px;border-radius:4px;">electron-updater</code> with a GitHub provider, typed <code style="font-size:12px;color:#aaa;background:var(--surface-2);padding:1px 5px;border-radius:4px;">update:*</code> events, and a tag-triggered release workflow. No-op in dev.
                         </p>
                     </div>
                 </div>
@@ -773,6 +788,57 @@
                             View on GitHub
                         </a>
                         <a href="#quickstart" class="btn btn-secondary">Quick Start</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Auto-Update -->
+        <section id="auto-update">
+            <div class="container">
+                <p class="section-label">Auto-Update</p>
+                <h2 class="section-title">Ship updates like VSCode.</h2>
+                <p class="section-sub">
+                    Check → Download → Restart. Three steps, all user-initiated. A tag push is all it takes to ship a new version.
+                </p>
+
+                <div style="margin-top:48px;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start;">
+                    <div>
+                        <p style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;">How it works</p>
+                        <ol style="font-size:14px;color:var(--text-muted);line-height:2;padding-left:20px;">
+                            <li>User clicks <strong style="color:var(--text)">Check for Updates</strong></li>
+                            <li>Update found → <strong style="color:var(--text)">Download</strong> button appears</li>
+                            <li>Progress bar streams download</li>
+                            <li>Download done → <strong style="color:var(--text)">Restart to Update</strong></li>
+                        </ol>
+                        <p style="font-size:13px;color:var(--text-dim);margin-top:16px;">
+                            <code style="font-size:12px;color:#aaa;background:var(--surface-2);padding:1px 5px;border-radius:4px;">autoDownload: false</code> and <code style="font-size:12px;color:#aaa;background:var(--surface-2);padding:1px 5px;border-radius:4px;">autoInstallOnAppQuit: false</code> — the user is always in control.
+                        </p>
+                    </div>
+
+                    <div>
+                        <p style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:12px;">Shipping a release</p>
+                        <div class="code-window">
+                            <div class="code-titlebar">
+                                <span class="dot dot-r"></span>
+                                <span class="dot dot-y"></span>
+                                <span class="dot dot-g"></span>
+                                <span class="code-titlebar-label">terminal</span>
+                            </div>
+                            <pre><span class="comment"># bump version in package.json, then:</span>
+<span class="cmd">git tag v1.2.0</span>
+<span class="cmd">git push && git push --tags</span>
+<span class="comment"># release workflow builds + publishes automatically</span></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="callout" style="margin-top:48px;">
+                    <div class="callout-text">
+                        <p class="callout-title">Self-hosted runner</p>
+                        <p class="callout-sub">
+                            Need code signing or a private fork? Change <code style="font-size:12px;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">runs-on: windows-latest</code> to <code style="font-size:12px;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">runs-on: [self-hosted, Windows]</code> in <code style="font-size:12px;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">release.yml</code> and register your dev machine as a runner in repo settings. Set <code style="font-size:12px;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">GH_TOKEN</code> and <code style="font-size:12px;background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">GH_TOKEN_RO</code> as machine-level env vars.
+                        </p>
                     </div>
                 </div>
             </div>

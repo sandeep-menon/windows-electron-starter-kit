@@ -5,6 +5,9 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
     main: {
+        define: {
+            __GH_TOKEN_RO__: JSON.stringify(process.env.GH_TOKEN_RO ?? "")
+        },
         build: {
             externalizeDeps: {
                 exclude: ["electron-store"]

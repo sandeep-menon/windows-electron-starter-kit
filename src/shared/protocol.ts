@@ -16,7 +16,11 @@ export const IPCParamSchemas = {
     "get-todo-by-id": z.object({ id: z.number().int().positive() }),
     "open-child-window": z.void(),
     "set-first-name": z.object({ firstName: z.string().trim().min(1).max(100) }),
-    "get-first-name": z.void()
+    "get-first-name": z.void(),
+    "check-for-updates": z.void(),
+    "download-update": z.void(),
+    "install-update": z.void(),
+    "get-app-version": z.void()
 } as const;
 
 export type IPCChannel = keyof typeof IPCParamSchemas;
@@ -34,6 +38,10 @@ export interface IPCResponseData extends Record<IPCChannel, unknown> {
     "open-child-window": void;
     "set-first-name": void;
     "get-first-name": string;
+    "check-for-updates": void;
+    "download-update": void;
+    "install-update": void;
+    "get-app-version": string;
 }
 
 /**
@@ -53,6 +61,12 @@ export type IPCInvocations = {
  */
 export interface IPCEvents {
     "first-name-changed": string;
+    "update:checking": void;
+    "update:available": { version: string };
+    "update:not-available": void;
+    "update:progress": { percent: number };
+    "update:downloaded": { version: string };
+    "update:error": { message: string };
 }
 
 export type IPCEventChannel = keyof IPCEvents;

@@ -1,4 +1,5 @@
-import { BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain, app } from "electron";
+import { checkForUpdates, downloadUpdate, installUpdate } from "./updater";
 import log from "electron-log";
 import { is } from "@electron-toolkit/utils";
 import { IPCParamSchemas, type IPCChannel, type IPCInvocations } from "../shared/protocol";
@@ -126,7 +127,23 @@ const handlers: {
                 }
             };
         }
-    }
+    },
+    "check-for-updates": (_event, _params) => {
+        checkForUpdates();
+        return { success: true, data: undefined };
+    },
+    "download-update": (_event, _params) => {
+        downloadUpdate();
+        return { success: true, data: undefined };
+    },
+    "install-update": (_event, _params) => {
+        installUpdate();
+        return { success: true, data: undefined };
+    },
+    "get-app-version": () => ({
+        success: true,
+        data: app.getVersion()
+    })
 };
 
 /**

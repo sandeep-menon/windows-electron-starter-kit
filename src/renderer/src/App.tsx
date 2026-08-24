@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Background } from "./components/Background";
 import ThemeToggle from "./components/ThemeToggle";
@@ -6,10 +6,21 @@ import { Button } from "./components/ui/button";
 import { Loader2Icon } from "lucide-react";
 import { useFirstName } from "./hooks/useFirstName";
 
+type UpdateState =
+    | { status: "idle" }
+    | { status: "checking" }
+    | { status: "available"; version: string }
+    | { status: "downloading"; version: string; percent: number }
+    | { status: "downloaded"; version: string }
+    | { status: "up-to-date" }
+    | { status: "error"; message: string };
+
 export default function App() {
     const [todoId, setTodoId] = useState("1");
     const [loading, setLoading] = useState<null | "random" | "byId">(null);
     const [boom, setBoom] = useState(false);
+    const [version, setVersion] = useState<string>("");
+    const [updateState, setUpdateState] = useState<UpdateState>({ status: "idle" });
 
     if (boom) throw new Error("Testing the error boundary");
     const busy = loading !== null;
@@ -18,6 +29,40 @@ export default function App() {
     const idValid = todoId.trim() !== "" && Number.isInteger(parsedId) && parsedId > 0;
 
     const firstName = useFirstName();
+
+    useEffect(() => {
+        window.api.invoke("get-app-version").then((resp) => {
+            if (resp.success) setVersion(resp.data);
+        });
+
+        const unsubs = [
+            window.api.on("update:checking", () => {
+                setUpdateState({ status: "checking" });
+            }),
+            window.api.on("update:available", (_event, data) => {
+                setUpdateState({ status: "available", version: data.version });
+            }),
+            window.api.on("update:not-available", () => {
+                setUpdateState({ status: "up-to-date" });
+                setTimeout(() => setUpdateState({ status: "idle" }), 4000);
+            }),
+            window.api.on("update:progress", (_event, data) => {
+                setUpdateState((prev) =>
+                    prev.status === "downloading"
+                        ? { ...prev, percent: data.percent }
+                        : prev
+                );
+            }),
+            window.api.on("update:downloaded", (_event, data) => {
+                setUpdateState({ status: "downloaded", version: data.version });
+            }),
+            window.api.on("update:error", (_event, data) => {
+                setUpdateState({ status: "error", message: data.message });
+            }),
+        ];
+
+        return () => unsubs.forEach((unsub) => unsub());
+    }, []);
 
     const handleClickMe = (): void => {
         toast.success("You clicked me!");
@@ -60,6 +105,11 @@ export default function App() {
         if (!resp.success) {
             toast.error(resp.error.message);
         }
+    };
+
+    const handleCheckForUpdates = async (): Promise<void> => {
+        setUpdateState({ status: "checking" });
+        await window.api.invoke("check-for-updates");
     };
 
     return (
@@ -107,12 +157,91 @@ export default function App() {
                         Load todo by ID
                     </Button>
                 </div>
+
                 <Button variant="secondary" onClick={handleOpenChildWindow}>
                     Open child window
                 </Button>
                 <Button variant="destructive" onClick={() => setBoom(true)}>
                     Throw an error
                 </Button>
+
+                {/* Auto-update section */}
+                <div className="flex items-center gap-3 mt-2">
+                    {version && (
+                        <span className="text-sm text-muted-foreground">v{version}</span>
+                    )}
+                    {updateState.status === "idle" && (
+                        <Button variant="outline" size="sm" onClick={handleCheckForUpdates}>
+                            Check for Updates
+                        </Button>
+                    )}
+                    {updateState.status === "checking" && (
+                        <Button variant="outline" size="sm" disabled>
+                            Checking...
+                        </Button>
+                    )}
+                    {updateState.status === "available" && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground">
+                                v{updateState.version} available
+                            </span>
+                            <Button
+                                size="sm"
+                                onClick={() => {
+                                    setUpdateState({
+                                        status: "downloading",
+                                        version: updateState.version,
+                                        percent: 0,
+                                    });
+                                    window.api.invoke("download-update");
+                                }}
+                            >
+                                Download
+                            </Button>
+                        </div>
+                    )}
+                    {updateState.status === "downloading" && (
+                        <div className="flex flex-col items-center gap-1">
+                            <span className="text-xs text-muted-foreground">
+                                Downloading v{updateState.version}... {updateState.percent}%
+                            </span>
+                            <div className="h-1 w-32 rounded-full bg-muted">
+                                <div
+                                    className="h-full rounded-full bg-primary transition-all duration-300"
+                                    style={{ width: `${updateState.percent}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    {updateState.status === "downloaded" && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">
+                                v{updateState.version} ready
+                            </span>
+                            <Button
+                                size="sm"
+                                onClick={() => window.api.invoke("install-update")}
+                            >
+                                Restart to Update
+                            </Button>
+                        </div>
+                    )}
+                    {updateState.status === "up-to-date" && (
+                        <span className="text-sm text-muted-foreground">✓ Up to date</span>
+                    )}
+                    {updateState.status === "error" && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-destructive">Update failed</span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setUpdateState({ status: "idle" })}
+                            >
+                                Try Again
+                            </Button>
+                        </div>
+                    )}
+                </div>
             </main>
         </>
     );

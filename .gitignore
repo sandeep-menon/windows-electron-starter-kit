@@ -7,3 +7,7 @@ out
 PROJECT_REVIEW.md
 performance_review.md
 CLAUDE.md
+docs/superpowers/
+plans/
+.env
+.env.local

@@ -14,6 +14,10 @@ npm run build        # typecheck → build all processes
 npm run build:win    # build → package Windows installer
 ```
 
+```bash
+git tag v1.x.x && git push --tags  # triggers release workflow → publishes installer + latest.yml
+```
+
 There are no automated tests in this project (issue #15 — planned: Vitest for unit tests + GitHub Actions CI running `lint` / `typecheck` / `build`).
 
 ## Architecture
@@ -72,11 +76,23 @@ Each window has its own JS heap — client-side state libraries don't span windo
 
 Any other ESM-only main-process dependency must be added to the same `exclude` list in `electron.vite.config.ts`. The preload has its own `exclude` list for its dependencies.
 
+### Auto-update (`src/main/updater.ts`)
+
+`initUpdater(mainWindow)` is called in `src/main/index.ts` immediately after `createWindow`. Returns early when `!app.isPackaged` — complete no-op in dev; `checkForUpdates()` fires `update:not-available` so the renderer never hangs.
+
+State flows one way: `autoUpdater` events → `send()` → typed `update:*` `IPCEvents` → renderer `UpdateState`. Never poll; never write state back to main.
+
+Build-time token: `__GH_TOKEN_RO__` is injected via Vite `define` in `electron.vite.config.ts`. Spread pattern: `...(__GH_TOKEN_RO__ && { token: __GH_TOKEN_RO__ })` — token key omitted entirely when empty (not passed as empty string). Any future build-time constant should follow this pattern.
+
 ### Logging
 
 Initialized in `src/main/utils/application.ts` before the first window opens. All processes write to one rotating log file at `%APPDATA%\windows-electron-starter-kit\logs\`. Dev: `silly`; production: `info`; production with `--enable-logging`: `silly`. Sensitive IPC payload keys are redacted in `src/preload/index.ts` by `redact()` before logging; to protect additional fields add a lowercase separator-free term to `SENSITIVE_KEYS` there.
 
 Uncaught errors are caught in every process: main via `log.errorHandler.startCatching()`; renderer via `globalErrorLogging()` (in `src/renderer/src/lib/errorLogging.ts`) and `ErrorBoundary.componentDidCatch`.
+
+## Repository conventions
+
+- `docs/superpowers/` is gitignored. Use `git add -f <path>` to commit specs and plans there.
 
 ## Bundler notes
 

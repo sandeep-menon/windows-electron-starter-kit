@@ -18,12 +18,35 @@ An enterprise-grade Electron starter for Windows desktop applications — typed,
 
 ## Getting Started
 
+This repository is a GitHub template. Click **Use this template → Create a new repository** to get your own copy, then:
+
 ```bash
-git clone https://github.com/sandeep-menon/windows-electron-starter-kit.git
-cd windows-electron-starter-kit
+git clone https://github.com/<you>/<your-app>.git
+cd <your-app>
 npm install
 npm run dev
 ```
+
+Before your first release, work through [Make It Yours](#make-it-yours).
+
+## Make It Yours
+
+The template ships with its own identifiers. Replace them before you build or publish — otherwise your installed app will check **this** repository's releases for updates.
+
+| File                                             | What to change                                                                  |
+| ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| `package.json`                                   | `name`, `homepage`, `author`, `description`; reset `version` to `0.1.0`         |
+| `electron-builder.yml`                           | `appId`, `productName`, `executableName`, `publish.owner`, `publish.repo`       |
+| `src/main/updater.ts`                            | `owner` and `repo` in the feed URL                                              |
+| `dev-app-update.yml`                             | `updaterCacheDirName`                                                           |
+| `src/renderer/src/components/theme-provider.tsx` | `THEME_STORAGE_KEY`                                                             |
+| `src/renderer/index.html`                        | the theme key in the inline script — must match `THEME_STORAGE_KEY` (see below) |
+| `LICENSE`                                        | copyright holder and year                                                       |
+| `README.md`, `docs/`                             | your own content                                                                |
+
+> **CSP hash:** the inline theme script in `src/renderer/index.html` is allowed by its SHA-256 hash in the `Content-Security-Policy` meta tag. Changing any character of that script (including the storage key) changes the hash. Run `npm run dev`, copy the new `sha256-…` value from the CSP error in DevTools, and paste it into the meta tag.
+
+The log and config folder (`%APPDATA%\<name>\`) follows these values automatically — `package.json` `name` in dev, `productName` in packaged builds.
 
 ## Available Scripts
 

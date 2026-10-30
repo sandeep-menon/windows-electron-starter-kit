@@ -98,7 +98,7 @@ Uncaught errors are caught in every process: main via `log.errorHandler.startCat
 
 ## Repository conventions
 
-- `docs/superpowers/` is gitignored. Use `git add -f <path>` to commit specs and plans there.
+- `docs/superpowers/` is gitignored and must stay out of the repo. Do not `git add -f` specs or plans there; keep them local only.
 
 ## Bundler notes
 

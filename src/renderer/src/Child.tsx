@@ -1,11 +1,11 @@
-import { useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Background } from "./components/Background";
 import ThemeToggle from "./components/ThemeToggle";
 import { Button } from "./components/ui/button";
 import { Loader2Icon } from "lucide-react";
 
-export default function Child() {
+export default function Child(): ReactElement {
     const [firstName, setFirstName] = useState("");
     const [saving, setSaving] = useState(false);
 
@@ -51,7 +51,7 @@ export default function Child() {
             </div>
             <main className="relative z-0 flex h-screen flex-col items-center justify-center gap-4">
                 <h1 className="font-serif text-3xl font-light text-foreground">
-                    What's your first name?
+                    What&apos;s your first name?
                 </h1>
                 <div className="flex items-end gap-2">
                     <div className="flex flex-col gap-1">

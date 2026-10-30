@@ -1,8 +1,9 @@
+import type { ReactElement } from "react";
 import { MoonIcon, SunIcon } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Button } from "./ui/button";
 
-export default function ThemeToggle() {
+export default function ThemeToggle(): ReactElement {
     const { theme, setTheme } = useTheme();
 
     const isDark =

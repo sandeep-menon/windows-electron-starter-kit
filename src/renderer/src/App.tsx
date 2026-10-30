@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Background } from "./components/Background";
 import ThemeToggle from "./components/ThemeToggle";
@@ -15,7 +15,7 @@ type UpdateState =
     | { status: "up-to-date" }
     | { status: "error"; message: string };
 
-export default function App() {
+export default function App(): ReactElement {
     const [todoId, setTodoId] = useState("1");
     const [loading, setLoading] = useState<null | "random" | "byId">(null);
     const [boom, setBoom] = useState(false);

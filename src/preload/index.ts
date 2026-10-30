@@ -51,7 +51,7 @@ const loggingIPC = {
         }
     },
     on(channel, callback) {
-        const wrapperCallback = (event, ...args) => {
+        const wrapperCallback = (event, ...args): void => {
             if (DEBUG) log.info(`[main → renderer] (event): '${channel}' → `, ...args.map(redact));
             callback(event, ...args);
         };

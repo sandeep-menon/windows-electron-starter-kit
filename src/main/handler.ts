@@ -80,7 +80,7 @@ const handlers: {
         params: IPCInvocations[K]["params"]
     ) => Promise<IPCInvocations[K]["returns"]> | IPCInvocations[K]["returns"];
 } = {
-    "get-random-todo": async (_event, _params) => getRandomTodo(),
+    "get-random-todo": async () => getRandomTodo(),
     "get-todo-by-id": async (_event, params) => getTodoById(params.id),
     "open-child-window": async (event) => {
         try {
@@ -128,15 +128,15 @@ const handlers: {
             };
         }
     },
-    "check-for-updates": (_event, _params) => {
+    "check-for-updates": () => {
         checkForUpdates();
         return { success: true, data: undefined };
     },
-    "download-update": (_event, _params) => {
+    "download-update": () => {
         downloadUpdate();
         return { success: true, data: undefined };
     },
-    "install-update": (_event, _params) => {
+    "install-update": () => {
         installUpdate();
         return { success: true, data: undefined };
     },

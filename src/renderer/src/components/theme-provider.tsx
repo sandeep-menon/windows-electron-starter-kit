@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, type ReactElement, useContext, useEffect, useState } from "react";
 
 type Theme = "dark" | "light" | "system";
 
@@ -27,7 +27,7 @@ export function ThemeProvider({
     defaultTheme = "system",
     storageKey = THEME_STORAGE_KEY,
     ...props
-}: ThemeProviderProps) {
+}: ThemeProviderProps): ReactElement {
     const [theme, setTheme] = useState<Theme>(
         () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
     );
@@ -64,7 +64,9 @@ export function ThemeProvider({
     );
 }
 
-export const useTheme = () => {
+// Hooks are exported alongside the provider on purpose; fast refresh just won't preserve state for this file.
+// eslint-disable-next-line react-refresh/only-export-components
+export const useTheme = (): ThemeProviderState => {
     const context = useContext(ThemeProviderContext);
 
     if (context === undefined) throw new Error("useTheme must be used within a ThemeProvider");

@@ -1,0 +1,3 @@
+# Keep internal plans and specs out of the published GitHub Pages site.
+exclude:
+    - superpowers

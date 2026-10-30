@@ -11,6 +11,8 @@ files:
     - "!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}"
 asarUnpack:
     - resources/**
+electronLanguages:
+    - en-US
 win:
     executableName: windows-electron-starter-kit
 nsis:

@@ -86,7 +86,13 @@ Build-time token: `__GH_TOKEN_RO__` is injected via Vite `define` in `electron.v
 
 ### Logging
 
-Initialized in `src/main/utils/application.ts` before the first window opens. All processes write to one rotating log file at `%APPDATA%\windows-electron-starter-kit\logs\`. Dev: `silly`; production: `info`; production with `--enable-logging`: `silly`. Sensitive IPC payload keys are redacted in `src/preload/index.ts` by `redact()` before logging; to protect additional fields add a lowercase separator-free term to `SENSITIVE_KEYS` there.
+Initialized in `src/main/utils/application.ts` before the first window opens. All processes write to one rotating log file (last 5 kept) at `%APPDATA%\windows-electron-starter-kit\logs\`.
+
+- **Default (production):** errors only. No launch/environment info, no IPC stream. The log file is created lazily on the first error.
+- **`--debug` launch argument** (or dev): everything — `silly` level, launch/environment info, and the full IPC request/response/event stream. The file is created eagerly at launch.
+- `isDebugMode()` in `application.ts` decides this in main. It forwards `--debug` to renderers via `webPreferences.additionalArguments`, and the preload checks `process.argv` for it to gate the IPC stream logging.
+
+Sensitive IPC payload keys are redacted in `src/preload/index.ts` by `redact()` before logging; to protect additional fields add a lowercase separator-free term to `SENSITIVE_KEYS` there.
 
 Uncaught errors are caught in every process: main via `log.errorHandler.startCatching()`; renderer via `globalErrorLogging()` (in `src/renderer/src/lib/errorLogging.ts`) and `ErrorBoundary.componentDidCatch`.
 

@@ -1,6 +1,6 @@
 # Windows Electron Starter Kit
 
-An enterprise-grade Electron starter for Windows desktop applications — typed, runtime-validated IPC, sandboxed renderer, structured logging with redaction, and a modern React + TypeScript UI.
+An enterprise-grade Electron starter for Windows desktop applications — typed, runtime-validated IPC, sandboxed renderer, error logging with an opt-in `--debug` mode, and a modern React + TypeScript UI.
 
 ## Stack
 
@@ -149,31 +149,34 @@ Use `broadcast()` when state must stay consistent across windows or is owned by 
 - **Runtime schema validation**: every channel's params are validated against its Zod schema — no malformed value reaches business logic.
 - **External links**: delegated to the OS browser via `setWindowOpenHandler`; in-app navigation is denied by default.
 - **CSP**: inline theme script is allowed by its SHA-256 hash — no `unsafe-inline`.
-- **Log redaction**: secrets in IPC payloads are scrubbed before being written to disk.
+- **Log redaction**: secrets in IPC payloads are scrubbed before being written to the log file (debug mode only, since payloads are not logged otherwise).
 
 ## Logging
 
-Logging is built on [electron-log](https://github.com/megahertz/electron-log) v5 and initialized in `src/main/utils/application.ts` before the first window opens.
+Logging is built on [electron-log](https://github.com/megahertz/electron-log) v5 and initialized in `src/main/utils/application.ts` before the first window opens. All processes write to one log file.
 
-| Environment                        | Verbosity     |
-| ---------------------------------- | ------------- |
-| Development                        | `silly` (all) |
-| Production (default)               | `info`        |
-| Production with `--enable-logging` | `silly` (all) |
+Logging has two modes:
 
-File logging is always on. To capture full diagnostics from a production machine without shipping a new build:
+| Mode                                   | Logged                                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Default (production)                   | Errors only. No launch/environment info, no IPC traffic. No file is created until the first error occurs. |
+| `--debug` launch argument (or dev)     | Everything: `error`, `warn`, `info`, `debug`, `silly`, launch/environment info, and the full IPC stream.   |
+
+To capture full diagnostics from a packaged build, relaunch it with the flag:
 
 ```bash
-"Windows Electron Starter Kit.exe" --enable-logging
+"Windows Electron Starter Kit.exe" --debug
 ```
 
 **Log files** — written to `%APPDATA%\windows-electron-starter-kit\logs\` as `app_<YYYYMMDD>_<epoch>.log`. The 5 most recent files are kept; older ones are deleted on every launch.
 
-**What's captured** — all processes write to one file. Main uses `electron-log/main`; the preload bridges renderer logs via `window.api.log`. Startup diagnostics (versions, OS, paths) are logged at launch. Every IPC request, response, and error is logged with redaction applied. Uncaught errors are caught automatically in every process — main via `log.errorHandler.startCatching()`, renderer via global error handlers and an `ErrorBoundary`.
+**What's captured in debug mode** — every IPC request, response, and event, with redaction applied. Main uses `electron-log/main`; the preload forwards renderer logs via `window.api.log`. Uncaught errors are captured automatically in every process in both modes — main via `log.errorHandler.startCatching()`, renderer via global error handlers and an `ErrorBoundary`.
+
+Debug mode is detected in the main process (`isDebugMode()` in `src/main/utils/application.ts`) and forwarded to renderers with `webPreferences.additionalArguments`, since the sandboxed preload can't read the app's own arguments reliably.
 
 ### Sensitive-data redaction
 
-`redact()` in `src/preload/index.ts` scrubs logged IPC payloads before they reach disk. A key is redacted if, after lowercasing and stripping `_`/`-`, it contains any sensitive term as a substring — catching `access_token`, `x-api-key`, `refreshToken`, and similar variants without listing each one.
+`redact()` in `src/preload/index.ts` scrubs IPC payloads before they reach the log file. Since IPC payloads are only logged in debug mode, redaction only applies there. A key is redacted if, after lowercasing and stripping `_`/`-`, it contains any sensitive term as a substring — catching `access_token`, `x-api-key`, `refreshToken`, and similar variants without listing each one.
 
 Redaction only affects what is logged — the actual IPC call always receives the original arguments.
 
@@ -318,7 +321,7 @@ Use `npm run dev:watch`. If a restart doesn't happen, check the terminal for a b
 
 **No log file appears**
 
-File logging is always on. Check `%APPDATA%\windows-electron-starter-kit\logs\`. For full verbosity in a packaged build, relaunch with `--enable-logging`.
+In default mode, a log file is only created when the first error is logged, so a clean run leaves no file. Check `%APPDATA%\windows-electron-starter-kit\logs\`. For full verbosity (including info and the IPC stream) in a packaged build, relaunch with `--debug`.
 
 ## License
 

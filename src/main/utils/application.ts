@@ -9,11 +9,11 @@ import { AppEntry } from "../../shared/types";
 
 const MAX_LOG_FILES = 5;
 
-function isVerboseLogging() {
-    return is.dev || process.argv.includes("--enable-logging");
+export function isDebugMode(): boolean {
+    return is.dev || process.argv.includes("--debug");
 }
 
-function generateTimestamp() {
+function generateTimestamp(): string {
     const date = new Date();
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -21,11 +21,11 @@ function generateTimestamp() {
     return `${year}${month}${day}_${date.getTime()}`;
 }
 
-function generateLogFileName() {
+function generateLogFileName(): string {
     return `app_${generateTimestamp()}.log`;
 }
 
-function getEnvironmentInfo() {
+function getEnvironmentInfo(): Record<string, unknown> {
     return {
         app: {
             name: app.getName(),
@@ -71,7 +71,7 @@ function getEnvironmentInfo() {
     };
 }
 
-function cleanupOldLogs(logDir: string) {
+function cleanupOldLogs(logDir: string): void {
     const files = fs
         .readdirSync(logDir)
         .filter((file) => file.startsWith("app_") && file.endsWith(".log"))
@@ -86,22 +86,27 @@ function cleanupOldLogs(logDir: string) {
     }
 }
 
-export function initializeLogging() {
-    const logFileName = generateLogFileName();
+export function initializeLogging(): void {
+    const debug = isDebugMode();
     const logDir = join(app.getPath("userData"), "logs");
-    const logFilePath = join(logDir, logFileName);
+    const logFilePath = join(logDir, generateLogFileName());
     fs.mkdirSync(logDir, { recursive: true });
-    fs.writeFileSync(logFilePath, "");
     cleanupOldLogs(logDir);
+    // Default mode: no file is created at launch; electron-log creates it on the first error.
+    if (debug) {
+        fs.writeFileSync(logFilePath, "");
+    }
     log.transports.file.resolvePathFn = () => logFilePath;
-    const level = isVerboseLogging() ? "silly" : "info";
+    const level = debug ? "silly" : "error";
     log.transports.file.level = level;
     log.transports.console.level = level;
     log.initialize();
     log.errorHandler.startCatching();
-    log.info("Application launched...");
-    log.info("Environment:");
-    log.info(getEnvironmentInfo());
+    if (debug) {
+        log.info("Application launched...");
+        log.info("Environment:");
+        log.info(getEnvironmentInfo());
+    }
 }
 
 export function createWindow({
@@ -110,7 +115,7 @@ export function createWindow({
 }: {
     entry: AppEntry;
     parent?: BrowserWindow;
-}) : BrowserWindow {
+}): BrowserWindow {
     const window = new BrowserWindow({
         width: 900,
         height: 670,
@@ -123,6 +128,8 @@ export function createWindow({
         ...(process.platform === "win32" ? { icon } : {}),
         webPreferences: {
             preload: join(__dirname, "../preload/index.js"),
+            // Forwards debug mode to the preload (which can't read is.dev or the app's argv)
+            additionalArguments: isDebugMode() ? ["--debug"] : [],
             sandbox: true,
             contextIsolation: true,
             nodeIntegration: false
@@ -134,7 +141,9 @@ export function createWindow({
     });
 
     window.webContents.setWindowOpenHandler((details) => {
-        shell.openExternal(details.url).catch((err) => log.error(`Failed to open external URL: ${err}`));
+        shell
+            .openExternal(details.url)
+            .catch((err) => log.error(`Failed to open external URL: ${err}`));
         return { action: "deny" };
     });
 

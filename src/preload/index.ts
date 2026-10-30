@@ -35,12 +35,15 @@ const redact = (value: unknown): unknown => {
     return value;
 };
 
+// Set by main via webPreferences.additionalArguments when launched with --debug (or in dev)
+const DEBUG = process.argv.includes("--debug");
+
 const loggingIPC = {
     async invoke(channel, ...args) {
-        log.info(`[renderer → main] (request): '${channel}' → `, ...args.map(redact));
+        if (DEBUG) log.info(`[renderer → main] (request): '${channel}' → `, ...args.map(redact));
         try {
             const result = await ipcRenderer.invoke(channel, ...args);
-            log.info(`[main → renderer] (response): '${channel}' → `, redact(result));
+            if (DEBUG) log.info(`[main → renderer] (response): '${channel}' → `, redact(result));
             return result;
         } catch (error) {
             log.error(`[main → renderer] (error): '${channel}' → `, error);
@@ -49,12 +52,12 @@ const loggingIPC = {
     },
     on(channel, callback) {
         const wrapperCallback = (event, ...args) => {
-            log.info(`[main → renderer] (event): '${channel}' → `, ...args.map(redact));
+            if (DEBUG) log.info(`[main → renderer] (event): '${channel}' → `, ...args.map(redact));
             callback(event, ...args);
         };
         ipcRenderer.on(channel, wrapperCallback);
         return () => {
-            log.info(`[preload] Removing listener: '${channel}'`);
+            if (DEBUG) log.info(`[preload] Removing listener: '${channel}'`);
             ipcRenderer.removeListener(channel, wrapperCallback);
         };
     }

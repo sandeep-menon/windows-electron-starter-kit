@@ -6,7 +6,7 @@
         <title>Windows Electron Starter Kit</title>
         <meta
             name="description"
-            content="An enterprise-grade Electron starter for Windows — typed IPC, sandboxed renderer, structured logging, and a modern React + TypeScript UI."
+            content="An enterprise-grade Electron starter for Windows — typed IPC, sandboxed renderer, error logging with an opt-in debug mode, and a modern React + TypeScript UI."
         />
         <style>
             *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -498,7 +498,7 @@
                 </h1>
                 <p class="hero-sub">
                     A starter kit with typed, runtime-validated IPC, a sandboxed renderer,
-                    structured logging with redaction, and a modern React + TypeScript UI.
+                    error logging by default with a <code>--debug</code> mode for full diagnostics, and a modern React + TypeScript UI.
                     Ship with confidence from day one.
                 </p>
                 <div class="hero-actions">
@@ -596,9 +596,9 @@
                                 <polyline points="10 9 9 9 8 9" />
                             </svg>
                         </div>
-                        <p class="feature-title">Structured logging + redaction</p>
+                        <p class="feature-title">Errors by default, full logs on demand</p>
                         <p class="feature-desc">
-                            Per-launch timestamped files, bounded rotation, all-process coverage. Sensitive keys are scrubbed from IPC payloads before anything touches disk.
+                            Production logs only errors, with no file created until one occurs. Launch with <code>--debug</code> for info, debug, and the full IPC stream. Sensitive keys are scrubbed from payloads, and files rotate to the last 5.
                         </p>
                     </div>
                     <!-- 6 -->
@@ -611,7 +611,7 @@
                         </div>
                         <p class="feature-title">Built to extend</p>
                         <p class="feature-desc">
-                            Add a channel: declare a schema, declare a response type, implement the handler. Typed, validated, and logged — automatically. The compiler guides you.
+                            Add a channel: declare a schema, declare a response type, implement the handler. Typed, validated, and errors are logged — automatically. The compiler guides you.
                         </p>
                     </div>
                     <!-- 7 -->

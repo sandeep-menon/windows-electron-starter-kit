@@ -5,6 +5,11 @@ import log from "electron-log/main";
 import { registerHandlers } from "./handler";
 import { getStore } from "./utils/store";
 import { initUpdater } from "./updater";
+import { redact } from "../shared/redact";
+
+// Every log call in main (and renderer logs forwarded over IPC) passes through this before any
+// transport writes it. Registered at module load so nothing logged earlier slips past.
+log.hooks.push((message) => ({ ...message, data: message.data.map(redact) }));
 
 app.whenReady().then(() => {
     electronApp.setAppUserModelId("com.smenon.windowselectronstarterkit");

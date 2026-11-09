@@ -56,7 +56,7 @@ All handlers resolve with `MainProcessResponse<T>` (a `{ success: true; data: T 
 
 `registerHandlers()` returns a `cleanup()` closure; it is called on `app.on("will-quit")` in `src/main/index.ts`.
 
-All network calls go through `fetchWithTimeout()` (in `handler.ts`), which wraps `fetch()` with `AbortController` and a 10 s timeout; the timer is cleared in `finally`.
+All network calls go through `fetchWithTimeout()` (in `handler.ts`), which calls Electron's `net.fetch()` with `AbortSignal.timeout()` (10 s default). Use `net.fetch`, never Node's global `fetch`: Node's fetch ignores the Windows system proxy / PAC and the OS certificate store, so it times out on corporate networks. Failures surface as `net::ERR_*` codes in the error message; a timeout is a `TimeoutError`.
 
 ### Multi-window (`src/main/utils/application.ts`)
 
@@ -92,7 +92,7 @@ Initialized in `src/main/utils/application.ts` before the first window opens. Al
 - **`--debug` launch argument** (or dev): everything — `silly` level, launch/environment info, and the full IPC request/response/event stream. The file is created eagerly at launch.
 - `isDebugMode()` in `application.ts` decides this in main. It forwards `--debug` to renderers via `webPreferences.additionalArguments`, and the preload checks `process.argv` for it to gate the IPC stream logging.
 
-Sensitive IPC payload keys are redacted in `src/preload/index.ts` by `redact()` before logging; to protect additional fields add a lowercase separator-free term to `SENSITIVE_KEYS` there.
+Sensitive keys are redacted by `redact()` in `src/shared/redact.ts`, used in two places: the preload (IPC stream + `window.api.log`) and an `electron-log` hook registered at module load in `src/main/index.ts` (covers every main-process log and forwarded renderer logs). Keys are split into words (camelCase / `_` / `-` / `.`) and matched whole, so `pat` is caught but `filePath` is not. To protect another field, add a lowercase word to `SENSITIVE_WORDS`, a word pair to `SENSITIVE_PAIRS`, or a suffix to `SENSITIVE_SUFFIXES` for keys without word boundaries. Circular references become `[Circular]` and nesting is capped at `MAX_DEPTH`.
 
 Uncaught errors are caught in every process: main via `log.errorHandler.startCatching()`; renderer via `globalErrorLogging()` (in `src/renderer/src/lib/errorLogging.ts`) and `ErrorBoundary.componentDidCatch`.
 

@@ -37,6 +37,7 @@ The template ships with its own identifiers. Replace them before you build or pu
 | ------------------------------------------------ | ------------------------------------------------------------------------------- |
 | `package.json`                                   | `name`, `homepage`, `author`, `description`; reset `version` to `0.1.0`         |
 | `electron-builder.yml`                           | `appId`, `productName`, `executableName`, `publish.owner`, `publish.repo`       |
+| `resources/icon.png`, `build/icon.*`             | your own icon — square, min 256×256; keep `.png`, `.ico` and `.icns` in sync    |
 | `src/main/updater.ts`                            | `owner` and `repo` in the feed URL                                              |
 | `dev-app-update.yml`                             | `updaterCacheDirName`                                                           |
 | `src/renderer/src/components/theme-provider.tsx` | `THEME_STORAGE_KEY`                                                             |

@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, app } from "electron";
+import { BrowserWindow, ipcMain, app, net } from "electron";
 import { checkForUpdates, downloadUpdate, installUpdate } from "./updater";
 import log from "electron-log";
 import { is } from "@electron-toolkit/utils";
@@ -11,9 +11,10 @@ import { broadcast } from "./utils/events";
 const TRUSTED_PROTOCOLS = ["file:"];
 
 function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+    // Electron net.fetch (Chromium network stack), NOT Node's global fetch: it honours the
+    // Windows system proxy / PAC and the OS certificate store. Node's fetch connects directly
+    // and times out on corporate networks that require a proxy.
+    return net.fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
 }
 
 async function getRandomTodo(): Promise<MainProcessResponse<Todo>> {

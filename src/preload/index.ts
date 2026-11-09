@@ -1,39 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { electronAPI } from "@electron-toolkit/preload";
 import log from "electron-log/renderer";
-
-const SENSITIVE_KEYS = [
-    "password",
-    "token",
-    "secret",
-    "authorization",
-    "apikey",
-    "accesstoken",
-    "personalaccesstoken",
-    "pat",
-    "refreshtoken",
-    "cookie"
-];
-
-const redact = (value: unknown): unknown => {
-    if (Array.isArray(value)) {
-        return value.map(redact);
-    }
-    if (value && typeof value === "object") {
-        return Object.fromEntries(
-            Object.entries(value).map(([key, val]) => {
-                // Normalize (drop separators) + substring match so prefixed/snake_case/
-                // kebab-case variants are caught too: access_token, x-api-key, client_secret...
-                // Deliberately broad - over-redacting a log is safer than leaking a secret.
-                const norm = key.toLowerCase().replace(/[_-]/g, "");
-                return SENSITIVE_KEYS.some((k) => norm.includes(k))
-                    ? [key, "[REDACTED]"]
-                    : [key, redact(val)];
-            })
-        );
-    }
-    return value;
-};
+import { redact } from "../shared/redact";
 
 // Set by main via webPreferences.additionalArguments when launched with --debug (or in dev)
 const DEBUG = process.argv.includes("--debug");
@@ -46,7 +14,7 @@ const loggingIPC = {
             if (DEBUG) log.info(`[main → renderer] (response): '${channel}' → `, redact(result));
             return result;
         } catch (error) {
-            log.error(`[main → renderer] (error): '${channel}' → `, error);
+            log.error(`[main → renderer] (error): '${channel}' → `, redact(error));
             throw error;
         }
     },
